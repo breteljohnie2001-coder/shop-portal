@@ -244,7 +244,8 @@ export default function DashboardPage() {
             <ProfileDrawer
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
-                user={user}
+                userEmail={user?.email || ''}
+                userRole={user?.role || ''}
             />
         </div>
     );
