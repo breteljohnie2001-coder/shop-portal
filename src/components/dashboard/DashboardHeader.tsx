@@ -19,7 +19,7 @@ export default function DashboardHeader({
     return (
         <header className="sticky top-0 z-20 bg-black border-b border-gray-800">
             {/* ADJUSTED: Increased padding from py-4 to py-5 for a slightly taller header */}
-            <div className="px-6 py-5 flex items-center justify-between">
+            <div className="px-4 py-5 flex items-center justify-between">
 
                 {/* LEFT SECTION: Avatar + Greeting/Name Column */}
                 <div className="flex items-center gap-4"> {/* ADJUSTED: Gap increased from gap-3 to gap-4 */}
