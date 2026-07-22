@@ -1,10 +1,6 @@
 'use client';
 
-import {
-    DollarSign,
-    Package,
-    Receipt,
-} from "lucide-react";
+import Image from "next/image";
 
 interface QuickActionsProps {
     onSale?: () => void;
@@ -19,26 +15,29 @@ export default function QuickActions({
                                      }: QuickActionsProps) {
     return (
         <section>
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">
                 Quick Actions
             </h3>
 
             <div className="grid grid-cols-3 gap-4">
                 <ActionCard
-                    icon={<DollarSign size={22} />}
-                    title="Sale"
+                    iconSrc="/salesIcon.png"
+                    alt="Sale Icon"
+                    title="+Sale"
                     onClick={onSale}
                 />
 
                 <ActionCard
-                    icon={<Package size={22} />}
-                    title="Stock"
+                    iconSrc="/stockIcon.png"
+                    alt="Stock Icon"
+                    title="+Stock"
                     onClick={onStock}
                 />
 
                 <ActionCard
-                    icon={<Receipt size={22} />}
-                    title="Expense"
+                    iconSrc="/expensesIcon.png"
+                    alt="Expense Icon"
+                    title="+Expense"
                     onClick={onExpense}
                 />
             </div>
@@ -47,13 +46,15 @@ export default function QuickActions({
 }
 
 interface ActionCardProps {
-    icon: React.ReactNode;
+    iconSrc: string;
+    alt: string;
     title: string;
     onClick?: () => void;
 }
 
 function ActionCard({
-                        icon,
+                        iconSrc,
+                        alt,
                         title,
                         onClick,
                     }: ActionCardProps) {
@@ -61,26 +62,42 @@ function ActionCard({
         <button
             onClick={onClick}
             className="
-        group
-        rounded-2xl
-        border
-        border-gray-200
-        bg-white
-        p-5
-        transition-all
-        duration-300
-        hover:-translate-y-1
-        hover:shadow-lg
-      "
+                group
+                flex
+                w-full
+                flex-col
+                items-center
+                justify-center
+                rounded-2xl
+                border
+                border-neutral-800/80
+                bg-neutral-900
+                p-5
+                shadow-md
+                transition-all
+                duration-300
+                hover:-translate-y-1
+                hover:border-neutral-700
+                hover:shadow-xl
+                hover:shadow-black/40
+                active:scale-95
+            "
         >
             <div className="flex flex-col items-center gap-3">
-                <div className="text-gray-800 group-hover:scale-110 transition-transform">
-                    {icon}
+                {/* Fixed dimensions for crisp icon rendering */}
+                <div className="transition-transform duration-300 group-hover:scale-110">
+                    <Image
+                        src={iconSrc}
+                        alt={alt}
+                        width={28}
+                        height={28}
+                        className="h-7 w-7 object-contain"
+                    />
                 </div>
 
-                <span className="text-sm font-medium text-gray-700">
-          {title}
-        </span>
+                <span className="text-sm font-medium text-neutral-300 transition-colors group-hover:text-white">
+                    {title}
+                </span>
             </div>
         </button>
     );
