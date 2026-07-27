@@ -6,15 +6,15 @@ export const AUTHORIZED_USERS: Record<string, UserProfile> = {
         email: 'alexkitheka24@gmail.com',
         role: 'boss',
     },
-    'employeeA@email.com': {
+    'breteljohnie2001@gmail.com': {
         email: 'breteljohnie2001@gmail.com',
         role: 'employee_a',
-        assignedBrand: 'Baddie On A Budget Closet',
+        assignedBrand: 'brand_b', // Fixed: mapped to 'brand_b' instead of display name
     },
-    'employeeB@email.com': {
+    'oulxxtg@gmail.com': {
         email: 'oulxxtg@gmail.com',
         role: 'employee_b',
-        assignedBrand: 'brand_b',
+        assignedBrand: 'brand_a',
     },
 };
 

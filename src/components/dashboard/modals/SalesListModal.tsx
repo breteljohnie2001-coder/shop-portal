@@ -1,6 +1,8 @@
 'use client';
 
-import { X, ArrowUpRight, ShoppingBag, Package } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, ArrowUpRight, ShoppingBag, Package, Smartphone, Banknote } from 'lucide-react';
 
 export interface PurchasedProduct {
     id: string;
@@ -14,6 +16,7 @@ export interface SaleItem {
     customerName: string;
     amount: number;
     date: string;
+    paymentMethod: string;
     items: PurchasedProduct[];
 }
 
@@ -34,16 +37,34 @@ export default function SalesListModal({
                                            totalSales,
                                            sales,
                                        }: SalesListModalProps) {
-    if (!isOpen) return null;
+    const [mounted, setMounted] = useState(false);
 
-    return (
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
+
+    if (!isOpen || !mounted) return null;
+    console.log("Sales received:", sales);
+    return createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
             onClick={onClose}
         >
-            {/* Modal Box */}
+            {/* Modal Box Widened to max-w-3xl */}
             <div
-                className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl shadow-black/80 text-white"
+                className="relative w-full max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-900 p-6 shadow-2xl shadow-black/80 text-white"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -97,20 +118,37 @@ export default function SalesListModal({
                                 key={sale.id}
                                 className="rounded-xl border border-neutral-800/60 bg-neutral-950/40 p-4 transition-all hover:border-neutral-700 hover:bg-neutral-950"
                             >
-                                {/* Top Row: Customer Info & Order Total */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                {/* Top Row: Customer Info, Date & Payment Badge */}
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3 min-w-0">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-300 font-semibold text-xs shrink-0">
                                             {sale.customerName.charAt(0)}
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-neutral-200">{sale.customerName}</p>
-                                            <p className="text-[11px] text-neutral-500">{sale.date}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-neutral-200 truncate">{sale.customerName}</p>
+
+                                            {/* Date + Badge in a non-wrapping flex row */}
+                                            <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
+                                                <p className="text-[11px] text-neutral-500">{sale.date}</p>
+                                                <span className="text-neutral-700 text-[10px]">•</span>
+
+                                                {sale.paymentMethod === "M-Pesa" ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20 shrink-0">
+                                                        <Smartphone className="h-2.5 w-2.5" />
+                                                        {sale.paymentMethod}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20 shrink-0">
+                                                        <Banknote className="h-2.5 w-2.5" />
+                                                        {sale.paymentMethod}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-bold font-mono text-neutral-100">
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <p className="text-sm font-bold font-mono text-neutral-100 whitespace-nowrap">
                                             <span className="text-[10px] font-sans text-neutral-500 mr-1">KES</span>
                                             {sale.amount.toLocaleString()}
                                         </p>
@@ -140,6 +178,7 @@ export default function SalesListModal({
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

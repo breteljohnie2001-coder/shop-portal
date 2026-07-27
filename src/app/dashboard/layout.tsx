@@ -1,46 +1,35 @@
-'use client';
+// src/app/dashboard/layout.tsx
+import { ReactNode } from 'react';
+import { createClient } from '@/lib/supabase/server';
+import DashboardLayoutClient from './DashboardLayoutClient';
 
-import { ReactNode, useState } from 'react';
-
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import ProfileDrawer from '@/components/ProfileDrawer';
-import BottomNavigation from '@/components/navigation/BottomNavigation';
-
-interface User {
-    name: string;
-    role: string;
-}
-
-export default function DashboardLayout({
-                                            children,
-                                        }: {
+export default async function DashboardLayout({
+                                                  children,
+                                              }: {
     children: ReactNode;
 }) {
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const supabase = await createClient();
 
-    const user: User = {
-        name: 'Alex',
-        role: 'Owner',
-    };
+    // Fetch active authenticated user from Supabase
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    // Map Supabase metadata to your UI user object shape
+    const formattedUser = user
+        ? {
+            name:
+                user.user_metadata?.full_name ||
+                user.user_metadata?.name ||
+                user.email?.split('@')[0] ||
+                'User',
+            role: user.user_metadata?.role || 'Owner',
+        }
+        : null;
 
     return (
-        <main className="min-h-screen bg-gray-50 pb-28">
-            <DashboardHeader
-                user={user}
-                onProfileClick={() => setIsProfileOpen(true)}
-            />
-
-            <div className="mx-auto max-w-5xl px-6 py-6">
-                {children}
-            </div>
-
-            <ProfileDrawer
-                isOpen={isProfileOpen}
-                onClose={() => setIsProfileOpen(false)}
-                user={user}
-            />
-
-            <BottomNavigation />
-        </main>
+        <DashboardLayoutClient user={formattedUser}>
+            {children}
+        </DashboardLayoutClient>
     );
 }

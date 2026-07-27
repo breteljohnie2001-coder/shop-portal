@@ -1,80 +1,149 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
+import { useState } from 'react';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { Lock, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
     const supabase = createClient();
+    const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
 
-    const handleOAuthLogin = async (provider: 'google' | 'apple') => {
-        await supabase.auth.signInWithOAuth({
-            provider,
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
-            },
-        });
+    const signInWithGoogle = async () => {
+        try {
+            setLoadingProvider('google');
+            await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+        } catch (error) {
+            console.error('Google Sign-In Error:', error);
+            setLoadingProvider(null);
+        }
+    };
+
+    const signInWithApple = async () => {
+        try {
+            setLoadingProvider('apple');
+            await supabase.auth.signInWithOAuth({
+                provider: 'apple',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+        } catch (error) {
+            console.error('Apple Sign-In Error:', error);
+            setLoadingProvider(null);
+        }
     };
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-md">
-                {/* Brand Logos Header */}
-                <div className="mb-8 flex items-center justify-around border-b pb-6">
-                    <div className="flex flex-col items-center">
-                        <span className="text-xl font-bold text-emerald-600">BRAND A</span>
-                        <span className="text-xs text-gray-400">Inventory Portal</span>
+        <main className="flex min-h-screen items-center justify-center bg-[#0F0F10] px-4 text-white">
+            {/* Ambient Background Gradient Glows */}
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[250px] w-[250px] rounded-full bg-amber-500/5 blur-[100px] pointer-events-none" />
+
+            <div className="relative z-10 w-full max-w-md rounded-3xl border border-neutral-800/80 bg-neutral-900/90 p-8 sm:p-10 shadow-2xl backdrop-blur-xl">
+
+                {/* Dual-Brand Header Logos */}
+                <div className="mb-10 flex items-center justify-center gap-5 border-b border-neutral-800/80 pb-8">
+                    <div className="flex items-center justify-center h-12 w-28 rounded-xl bg-neutral-950/60 p-2 border border-neutral-800/50">
+                        <Image
+                            src="/baddyOnABudget.png"
+                            alt="Baddie On A Budget"
+                            width={110}
+                            height={36}
+                            className="h-8 w-auto object-contain"
+                            priority
+                        />
                     </div>
-                    <div className="h-8 w-[1px] bg-gray-200" />
-                    <div className="flex flex-col items-center">
-                        <span className="text-xl font-bold text-rose-500">BRAND B</span>
-                        <span className="text-xs text-gray-400">Inventory Portal</span>
+
+                    <span className="text-xl font-light text-neutral-700">/</span>
+
+                    <div className="flex items-center justify-center h-12 w-28 rounded-xl bg-neutral-950/60 p-2 border border-neutral-800/50">
+                        <Image
+                            src="/bee-trendy.png"
+                            alt="Bee-Trendy Collection"
+                            width={110}
+                            height={36}
+                            className="h-8 w-auto object-contain"
+                            priority
+                        />
                     </div>
                 </div>
 
-                <h2 className="mb-2 text-center text-2xl font-bold text-gray-800">
-                    Sign In
-                </h2>
-                <p className="mb-8 text-center text-sm text-gray-500">
-                    Access your unified shop management workspace
-                </p>
+                {/* Title & Description */}
+                <div className="text-center space-y-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 mb-1">
+                        <Lock className="h-3 w-3" /> Secure Portal
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                        Welcome Back
+                    </h1>
+                    <p className="text-xs sm:text-sm text-neutral-400">
+                        Sign in to manage sales, stock, and expenses across both brands.
+                    </p>
+                </div>
 
-                {/* OAuth Buttons */}
-                <div className="flex flex-col gap-4">
+                {/* OAuth Login Action Buttons */}
+                <div className="mt-8 space-y-3.5">
                     <button
-                        onClick={() => handleOAuthLogin('google')}
-                        className="flex items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"
+                        type="button"
+                        onClick={signInWithGoogle}
+                        disabled={loadingProvider !== null}
+                        className="group flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 text-xs font-semibold text-neutral-200 transition-all duration-200 hover:border-neutral-700 hover:bg-neutral-800/80 hover:text-white active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24">
-                            <path
-                                fill="#4285F4"
-                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                            />
-                            <path
-                                fill="#34A853"
-                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                            />
-                            <path
-                                fill="#FBBC05"
-                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                            />
-                            <path
-                                fill="#EA4335"
-                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                            />
-                        </svg>
-                        Continue with Google
+                        {loadingProvider === 'google' ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+                        ) : (
+                            <svg className="h-4 w-4" viewBox="0 0 24 24">
+                                <path
+                                    fill="#EA4335"
+                                    d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"
+                                />
+                                <path
+                                    fill="#4285F4"
+                                    d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+                                />
+                                <path
+                                    fill="#FBBC05"
+                                    d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"
+                                />
+                                <path
+                                    fill="#34A853"
+                                    d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"
+                                />
+                            </svg>
+                        )}
+                        <span>Continue with Google</span>
                     </button>
 
                     <button
-                        onClick={() => handleOAuthLogin('apple')}
-                        className="flex items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-gray-900 transition"
+                        type="button"
+                        onClick={signInWithApple}
+                        disabled={loadingProvider !== null}
+                        className="group flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-neutral-700/80 bg-white px-4 text-xs font-semibold text-black transition-all duration-200 hover:bg-neutral-200 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
-                        <svg className="h-5 w-5 fill-current" viewBox="0 0 24 24">
-                            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.96.99-3.12-1 .04-2.22.67-2.92 1.49-.62.72-1.16 1.88-1.01 3.01 1.12.09 2.27-.56 2.94-1.38z" />
-                        </svg>
-                        Continue with Apple
+                        {loadingProvider === 'apple' ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-neutral-800" />
+                        ) : (
+                            <svg className="h-4 w-4 fill-current text-black" viewBox="0 0 170 170">
+                                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.82.13-9.73-1.95-14.73-6.23-3.26-2.72-7.14-7.39-11.64-14.02-6.3-9.28-11.28-20.02-14.93-32.22-3.65-12.2-5.48-23.82-5.48-34.86 0-14.46 3.65-26.33 10.96-35.6 7.31-9.28 16.58-13.97 27.81-14.08 4.7 0 9.87 1.15 15.52 3.45 5.65 2.3 9.47 3.45 11.45 3.45 1.52 0 5.48-1.22 11.87-3.66 6.39-2.44 11.83-3.56 16.33-3.35 12.18.98 21.82 5.54 28.92 13.68-10.87 6.63-16.19 15.87-15.97 27.72.22 9.35 3.8 17.18 10.75 23.49 6.96 6.31 15.22 10.01 24.79 11.1-2.5 7.5-5.98 15.22-10.44 23.16zM119.22 31.84c0-7.07 2.58-13.92 7.74-20.55 5.16-6.63 11.63-10.65 19.41-12.06.22 1.09.33 2.07.33 2.94 0 6.96-2.61 13.81-7.83 20.55-5.22 6.74-11.85 10.76-19.89 12.06-.11-.98-.17-1.95-.17-2.94z" />
+                            </svg>
+                        )}
+                        <span>Continue with Apple</span>
                     </button>
                 </div>
+
+                {/* Footer Disclaimer */}
+                <div className="mt-8 text-center text-[11px] text-neutral-500">
+                    Protected by Supabase Auth RLS & Team Access Controls.
+                </div>
+
             </div>
-        </div>
+        </main>
     );
 }

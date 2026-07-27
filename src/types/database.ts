@@ -1,4 +1,4 @@
-export type BrandId = 'Baddie On A Budget Closet' | 'brand_b';
+export type BrandId = 'brand_a' | 'brand_b';
 
 export type UserRole = 'boss' | 'employee_a' | 'employee_b';
 
@@ -7,6 +7,18 @@ export interface UserProfile {
     role: UserRole;
     assignedBrand?: BrandId; // undefined for boss
 }
+
+export const BRAND_INFO = {
+    brand_a: {
+        name: "Bee Trendy Collection",
+        logo: "/bee-trendya.png",
+    },
+
+    brand_b: {
+        name: "Baddie On A Budget Closet",
+        logo: "/baddyOnABudgetb.png",
+    },
+} as const;
 
 export interface InventoryItem {
     id: string;
