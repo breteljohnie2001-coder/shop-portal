@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Package, Clock, Check, FileEdit, Send, Trash2, ShieldX, X } from 'lucide-react';
-import {StockItem, UserRole} from "@/types/types";
+import { StockItem, UserRole } from "@/types/types";
 
 interface StockItemCardProps {
     item: StockItem;
@@ -27,8 +27,12 @@ export default function StockItemCard({
     const [isImageOpen, setIsImageOpen] = useState(false);
     const [imgError, setImgError] = useState(false);
 
-    const isWithin15Minutes = (createdAt: Date) => {
-        const diffInMinutes = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60);
+    // Accept string | Date safely to handle both raw Supabase ISO strings and Date objects
+    const isWithin15Minutes = (createdAt: string | Date) => {
+        const createdTime = new Date(createdAt).getTime();
+        if (isNaN(createdTime)) return false; // Guard against invalid date values
+
+        const diffInMinutes = (Date.now() - createdTime) / (1000 * 60);
         return diffInMinutes <= 15;
     };
 
@@ -155,7 +159,7 @@ export default function StockItemCard({
                 >
                     <div
                         className="relative max-h-[85vh] max-w-[90vw] overflow-hidden rounded-2xl border border-stone-800 bg-stone-900 p-2 shadow-2xl"
-                        onClick={(e) => e.stopPropagation()} // Prevent clicking inner modal from closing
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close button */}
                         <button
