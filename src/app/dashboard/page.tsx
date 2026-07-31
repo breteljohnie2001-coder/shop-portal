@@ -196,7 +196,7 @@ export default function DashboardPage() {
                     id: stock.id,
                     type: 'stock',
                     item: stock.name || 'Stock item',
-                    amount: Number(stock.price ?? 0) * Number(stock.quantity ?? 0),
+                    amount: Number(stock.price ?? 0), // ✅ Unit price only
                     brand: String(stock.brand_id ?? ''),
                     timestamp: stock.created_at,
                 });

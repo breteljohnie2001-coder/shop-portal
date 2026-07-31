@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, PackagePlus, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImageToWebP } from '@/lib/utils/imageCompressor';
-import ImageUploader from "@/components/inventory/ImageUploader";
+import ImageUploader from '@/components/inventory/ImageUploader';
+import StockVariantEditor, {
+    StockVariantInput,
+} from '@/components/inventory/StockVariantEditor';
 
 const supabase = createClient();
 
@@ -14,36 +17,38 @@ interface AddStockModalProps {
     onSaveSuccess?: () => void;
 }
 
-export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddStockModalProps) {
+export default function AddStockModal({
+                                          isOpen,
+                                          onClose,
+                                          onSaveSuccess,
+                                      }: AddStockModalProps) {
     const [itemName, setItemName] = useState('');
-    const [quantity, setQuantity] = useState(1);
+    const [manualQuantity, setManualQuantity] = useState(0);
     const [unitPrice, setUnitPrice] = useState<number | ''>('');
-    const [sizes, setSizes] = useState('');
-    const [colors, setColors] = useState('');
     const [brandId, setBrandId] = useState<'brand_a' | 'brand_b' | null>(null);
     const [isBrandLocked, setIsBrandLocked] = useState(false);
-
-    // Image State
+    const [variants, setVariants] = useState<StockVariantInput[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!isOpen) return;
 
-        async function init() {
+        const init = async () => {
             setLoading(true);
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                const { data: profile } = await supabase
+                const { data: profile, error } = await supabase
                     .from('profiles')
                     .select('role, assigned_brand')
                     .eq('id', user.id)
                     .single();
+
+                if (error) throw error;
 
                 if (profile?.role === 'boss' || !profile?.assigned_brand) {
                     setBrandId('brand_a');
@@ -52,44 +57,87 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
                     setBrandId(profile.assigned_brand as 'brand_a' | 'brand_b');
                     setIsBrandLocked(true);
                 }
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.error('Add Stock Init Error:', error);
             } finally {
                 setLoading(false);
             }
-        }
+        };
 
         init();
     }, [isOpen]);
 
+    useEffect(() => {
+        return () => {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+        };
+    }, [imagePreview]);
+
+    const totalVariantQuantity = useMemo(
+        () =>
+            variants.reduce(
+                (total, variant) => total + Math.max(0, Number(variant.quantity) || 0),
+                0
+            ),
+        [variants]
+    );
+
     const handleImageSelect = (file: File | null) => {
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
         setSelectedFile(file);
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setImagePreview(url);
-        } else {
-            setImagePreview(null);
-        }
+        setImagePreview(file ? URL.createObjectURL(file) : null);
     };
 
-    if (!isOpen) return null;
+    const resetForm = () => {
+        setItemName('');
+        setManualQuantity(0);
+        setUnitPrice('');
+        setVariants([]);
+        setSelectedFile(null);
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        setImagePreview(null);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!brandId || !itemName.trim() || !unitPrice) return;
+        if (!brandId || !itemName.trim() || unitPrice === '') return;
+
+        // Clean and validate variants
+        const cleanedVariants = variants
+            .map((variant) => ({
+                color: variant.color.trim().toUpperCase(),
+                size: variant.size.trim().toUpperCase(),
+                quantity: Math.max(0, Number(variant.quantity) || 0),
+            }))
+            .filter((variant) => variant.color.length > 0 && variant.size.length > 0);
+
+        // Prevent duplicate color/size combinations
+        const combinations = new Set<string>();
+        for (const variant of cleanedVariants) {
+            const key = `${variant.color}::${variant.size}`;
+            if (combinations.has(key)) {
+                alert(`Duplicate stock combination: ${variant.color} / ${variant.size}`);
+                return;
+            }
+            combinations.add(key);
+        }
+
+        const finalQuantity =
+            cleanedVariants.length > 0
+                ? cleanedVariants.reduce((total, variant) => total + variant.quantity, 0)
+                : Math.max(0, manualQuantity);
 
         setIsSubmitting(true);
+        let inventoryId: string | null = null;
+
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
+            // 1. Upload image
             let uploadedImageUrl: string | null = null;
-
-            // 1. Handle image upload if selected
             if (selectedFile) {
-                // Compress image locally before sending to Supabase
                 const compressedWebPFile = await compressImageToWebP(selectedFile);
-
                 const filePath = `${brandId}/${Date.now()}_${compressedWebPFile.name}`;
 
                 const { error: uploadError } = await supabase.storage
@@ -101,7 +149,6 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
 
                 if (uploadError) throw uploadError;
 
-                // Fetch Public URL
                 const { data: urlData } = supabase.storage
                     .from('inventory-images')
                     .getPublicUrl(filePath);
@@ -109,53 +156,96 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
                 uploadedImageUrl = urlData.publicUrl;
             }
 
-            // 2. Format inputs
-            const sizesArray = sizes.split(',').map((s) => s.trim()).filter(Boolean);
-            const colorsArray = colors.split(',').map((c) => c.trim()).filter(Boolean);
+            // 2. Build legacy arrays
+            const colorsArray = [...new Set(cleanedVariants.map((v) => v.color))];
+            const sizesArray = [...new Set(cleanedVariants.map((v) => v.size))];
 
-            // 3. Insert record into Supabase
-            const { error } = await supabase.from('inventory').insert({
-                brand_id: brandId,
-                name: itemName.trim(),
-                quantity: quantity,
-                price: Number(unitPrice),
-                sizes: sizesArray.length > 0 ? sizesArray : null,
-                colors: colorsArray.length > 0 ? colorsArray : null,
-                image: uploadedImageUrl, // Save image URL in column 'image'
-                created_by: user.id,
-            });
+            // 3. Insert parent inventory
+            const { data: inventoryRecord, error: inventoryError } = await supabase
+                .from('inventory')
+                .insert({
+                    brand_id: brandId,
+                    name: itemName.trim(),
+                    quantity: finalQuantity,
+                    price: Number(unitPrice),
+                    sizes: sizesArray.length > 0 ? sizesArray : [],
+                    colors: colorsArray.length > 0 ? colorsArray : [],
+                    image: uploadedImageUrl,
+                    created_by: user.id,
+                })
+                .select('id')
+                .single();
 
-            if (error) throw error;
+            if (inventoryError) throw inventoryError;
+            if (!inventoryRecord?.id) {
+                throw new Error('Inventory record was created but no ID was returned.');
+            }
 
-            // Reset Form State
-            setItemName('');
-            setQuantity(1);
-            setUnitPrice('');
-            setSizes('');
-            setColors('');
-            setSelectedFile(null);
-            setImagePreview(null);
+            inventoryId = inventoryRecord.id;
+            console.log('Inventory created:', inventoryRecord);
 
+            // 4. Insert child inventory variants
+            if (cleanedVariants.length > 0) {
+                const variantRows = cleanedVariants.map((variant) => ({
+                    inventory_id: inventoryRecord.id,
+                    color: variant.color,
+                    size: variant.size,
+                    quantity: variant.quantity,
+                }));
+
+                console.log('Creating inventory variants:', variantRows);
+
+                const { data: insertedVariants, error: variantsError } = await supabase
+                    .from('inventory_variants')
+                    .insert(variantRows)
+                    .select('id, inventory_id, color, size, quantity');
+
+                if (variantsError) {
+                    console.error('Inventory Variants Insert Error:', variantsError);
+                    throw variantsError;
+                }
+
+                console.log('Inventory variants successfully created:', insertedVariants);
+
+                if (!insertedVariants || insertedVariants.length !== variantRows.length) {
+                    throw new Error('The inventory item was created, but not all stock variants were created.');
+                }
+            }
+
+            // 5. Success
+            resetForm();
             onSaveSuccess?.();
             onClose();
-        } catch (err: any) {
-            alert(err.message || 'Failed to add stock');
-            console.error(err);
+        } catch (error: unknown) {
+            console.error('Add Inventory Error:', error);
+
+            if (inventoryId) {
+                await supabase.from('inventory').delete().eq('id', inventoryId);
+            }
+
+            const message = error instanceof Error ? error.message : 'Failed to add stock';
+            alert(message);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-neutral-800 bg-[#0F0F10] p-6 shadow-2xl text-white space-y-4">
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-neutral-800 bg-[#0F0F10] p-6 shadow-2xl text-white space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                     <div className="flex items-center gap-2">
                         <PackagePlus className="h-5 w-5 text-emerald-400" />
                         <h2 className="text-lg font-bold">Add Inventory Stock</h2>
                     </div>
-                    <button onClick={onClose} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800"
+                    >
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -166,18 +256,18 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Brand Switcher */}
+                        {/* Brand */}
                         <div>
-                            <label className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                                 Brand
                             </label>
                             {isBrandLocked ? (
                                 <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-sm font-medium">
-                                    {brandId === 'brand_a' ? 'Bee Trendy' : 'Baddie'}
+                                    {brandId === 'brand_a' ? 'Bee Trendy' : 'Baddie on a Budget'}
                                     <span className="ml-2 text-xs text-neutral-500">(locked)</span>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-2 rounded-xl bg-neutral-900 p-1 border border-neutral-800">
+                                <div className="grid grid-cols-2 rounded-xl border border-neutral-800 bg-neutral-900 p-1">
                                     <button
                                         type="button"
                                         onClick={() => setBrandId('brand_a')}
@@ -194,13 +284,13 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
                                             brandId === 'brand_b' ? 'bg-neutral-800 text-white' : 'text-neutral-400'
                                         }`}
                                     >
-                                        Baddie
+                                        Baddie on a Budget
                                     </button>
                                 </div>
                             )}
                         </div>
 
-                        {/* Image Uploader */}
+                        {/* Image */}
                         <ImageUploader
                             previewUrl={imagePreview}
                             onImageSelect={handleImageSelect}
@@ -209,7 +299,9 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
 
                         {/* Item Name */}
                         <div>
-                            <label className="block text-xs font-medium text-neutral-400 mb-1">Item Name</label>
+                            <label className="mb-1 block text-xs font-medium text-neutral-400">
+                                Item Name
+                            </label>
                             <input
                                 type="text"
                                 required
@@ -220,84 +312,66 @@ export default function AddStockModal({ isOpen, onClose, onSaveSuccess }: AddSto
                             />
                         </div>
 
-                        {/* Quantity + Price */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-medium text-neutral-400 mb-1">Quantity</label>
-                                <div className="flex items-center rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden h-10">
-                                    <button
-                                        type="button"
-                                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                        className="w-10 h-full flex items-center justify-center text-neutral-400 hover:bg-neutral-800"
-                                    >
-                                        −
-                                    </button>
-                                    <span className="flex-1 text-center text-xs font-mono">{quantity}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setQuantity(quantity + 1)}
-                                        className="w-10 h-full flex items-center justify-center text-neutral-400 hover:bg-neutral-800"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
+                        {/* Price */}
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-neutral-400">
+                                Unit Price (KES)
+                            </label>
+                            <input
+                                type="number"
+                                required
+                                min="0"
+                                placeholder="0"
+                                value={unitPrice}
+                                onChange={(e) =>
+                                    setUnitPrice(e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="h-10 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-neutral-700"
+                            />
+                        </div>
 
+                        {/* Manual quantity only when no variants */}
+                        {variants.length === 0 && (
                             <div>
-                                <label className="block text-xs font-medium text-neutral-400 mb-1">Unit Price (KES)</label>
+                                <label className="mb-1 block text-xs font-medium text-neutral-400">
+                                    Quantity
+                                </label>
                                 <input
                                     type="number"
-                                    required
                                     min="0"
-                                    placeholder="0"
-                                    value={unitPrice}
-                                    onChange={(e) => setUnitPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                                    className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-neutral-700 h-10"
+                                    value={manualQuantity}
+                                    onChange={(e) =>
+                                        setManualQuantity(e.target.value === '' ? 0 : Number(e.target.value))
+                                    }
+                                    className="h-10 w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-neutral-700"
                                 />
                             </div>
-                        </div>
+                        )}
 
-                        {/* Sizes */}
-                        <div>
-                            <label className="block text-xs font-medium text-neutral-400 mb-1">
-                                Sizes <span className="text-neutral-600">(optional, comma separated)</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. S, M, L, XL"
-                                value={sizes}
-                                onChange={(e) => setSizes(e.target.value.toUpperCase())}
-                                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white uppercase placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
-                            />
-                        </div>
+                        {/* Variants */}
+                        <StockVariantEditor
+                            variants={variants}
+                            onChange={setVariants}
+                            disabled={isSubmitting}
+                        />
 
-                        {/* Colours */}
-                        <div>
-                            <label className="block text-xs font-medium text-neutral-400 mb-1">
-                                Colours <span className="text-neutral-600">(optional, comma separated)</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. BLACK, WHITE, RED"
-                                value={colors}
-                                onChange={(e) => setColors(e.target.value.toUpperCase())}
-                                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white uppercase placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
-                            />
-                        </div>
-
-                        {/* Actions */}
+                        {/* Submit */}
                         <div className="pt-2 flex gap-3">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="w-1/2 rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 text-xs font-semibold text-neutral-300"
+                                disabled={isSubmitting}
+                                className="w-1/2 rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 text-xs font-semibold text-neutral-300 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
+
                             <button
                                 type="submit"
-                                disabled={isSubmitting || !brandId}
-                                className="w-1/2 rounded-xl bg-emerald-500 py-2.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:opacity-50 flex items-center justify-center gap-2"
+                                disabled={
+                                    isSubmitting || !brandId || !itemName.trim() || unitPrice === ''
+                                }
+                                className="flex w-1/2 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
                             >
                                 {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                 {isSubmitting ? 'Adding…' : 'Add Stock'}

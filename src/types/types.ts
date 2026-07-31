@@ -1,5 +1,6 @@
+
 // ─── User & Authorization Types ──────────────────────────────────────────────
-export type UserRole = 'boss' | 'employee' | string;
+    export type UserRole = 'boss' | 'employee' | string;
 export type BrandId = 'brand_a' | 'brand_b';
 
 export interface AppUser {
@@ -38,6 +39,14 @@ export interface PastSale {
 }
 
 // ─── Stock & Inventory Types ──────────────────────────────────────────────────
+
+export interface StockVariant {
+    id: string;
+    color: string;
+    size: string;
+    quantity: number;
+}
+
 export interface StockItem {
     id: string;
     name: string;
@@ -48,6 +57,9 @@ export interface StockItem {
     imageUrl?: string;
     fixRequested?: boolean;
     bossApprovedFix?: boolean;
+
+    // Detailed stock breakdown by color and size
+    variants: StockVariant[];
 }
 
 // ─── Expenses Types ──────────────────────────────────────────────────────────
@@ -70,4 +82,5 @@ export interface EditableSaleItem {
     unitPrice: number;
     quantity: number;
 }
+
 

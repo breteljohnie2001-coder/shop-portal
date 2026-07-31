@@ -279,7 +279,7 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
                             <label className="block text-xs font-medium text-neutral-400 mb-1">Customer Name</label>
                             <input
                                 type="text"
-                                placeholder="e.g. Amina Mohamed (optional)"
+                                placeholder="e.g. Mumo Kitheka (optional: Default Walk-In)"
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}
                                 className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
