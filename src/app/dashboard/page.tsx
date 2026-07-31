@@ -52,57 +52,59 @@ export default function DashboardPage() {
             todayStart.setHours(0, 0, 0, 0);
             const todayIso = todayStart.toISOString();
 
-            // ── 1. Today’s expenses ──────────────────────────────────────────────
-            const { data: expensesData, error: expensesError } = await supabase
-                .from('expenses')
-                .select('id, brand_id, description, amount, created_at')
-                .gte('created_at', todayIso)
-                .order('created_at', { ascending: false });
+            // ── Parallel Execution: Fetch all 3 endpoints concurrently ───────────
+            const [expensesRes, salesRes, stockRes] = await Promise.all([
+                supabase
+                    .from('expenses')
+                    .select('id, brand_id, description, amount, created_at')
+                    .gte('created_at', todayIso)
+                    .order('created_at', { ascending: false }),
 
-            if (expensesError) throw expensesError;
+                supabase
+                    .from('sales')
+                    .select(`
+                        id,
+                        brand_id,
+                        customer_name,
+                        payment_method,
+                        total_amount,
+                        receipt_no,
+                        created_at,
+                        sale_items (
+                            id,
+                            item_name,
+                            quantity,
+                            unit_price,
+                            subtotal
+                        )
+                    `)
+                    .eq('is_voided', false)
+                    .gte('created_at', todayIso)
+                    .order('created_at', { ascending: false }),
 
-            const calculatedExpenses = (expensesData ?? []).reduce(
+                supabase
+                    .from('inventory')
+                    .select('id, brand_id, name, price, quantity, created_at')
+                    .eq('is_voided', false)
+                    .gte('created_at', todayIso)
+                    .order('created_at', { ascending: false }),
+            ]);
+
+            if (expensesRes.error) throw expensesRes.error;
+            if (salesRes.error) throw salesRes.error;
+            if (stockRes.error) throw stockRes.error;
+
+            const expensesData = expensesRes.data ?? [];
+            const sales = salesRes.data ?? [];
+            const stockData = stockRes.data ?? [];
+
+            // ── 1. Calculate Expenses ───────────────────────────────────────────
+            const calculatedExpenses = expensesData.reduce(
                 (acc, curr) => acc + Number(curr.amount ?? 0),
                 0
             );
-            setTotalExpenses(calculatedExpenses);
 
-            // ── 2. Today’s sales + nested sale_items ─────────────────────────────
-            const { data: sales, error: salesError } = await supabase
-                .from('sales')
-                .select(`
-          id,
-          brand_id,
-          customer_name,
-          payment_method,
-          total_amount,
-          receipt_no,
-          created_at,
-          sale_items (
-            id,
-            item_name,
-            quantity,
-            unit_price,
-            subtotal
-          )
-        `)
-                .eq('is_voided', false)
-                .gte('created_at', todayIso)
-                .order('created_at', { ascending: false });
-
-            if (salesError) throw salesError;
-
-            // ── 3. Today’s stock additions ───────────────────────────────────────
-            const { data: stockData, error: stockError } = await supabase
-                .from('inventory')
-                .select('id, brand_id, name, price, quantity, created_at')
-                .eq('is_voided', false)
-                .gte('created_at', todayIso)
-                .order('created_at', { ascending: false });
-
-            if (stockError) throw stockError;
-
-            // ── Process everything ───────────────────────────────────────────────
+            // ── 2. Process Sales, Expenses & Stock in Memory ────────────────────
             const brandA: SaleItem[] = [];
             const brandB: SaleItem[] = [];
             const transactionsList: Transaction[] = [];
@@ -111,8 +113,8 @@ export default function DashboardPage() {
             let sumBrandB = 0;
             const hourlySales: Record<number, number> = {};
 
-            // Sales
-            (sales ?? []).forEach((sale: any) => {
+            // Process Sales
+            sales.forEach((sale: any) => {
                 const amount = Number(sale.total_amount ?? 0);
                 sumTotal += amount;
 
@@ -176,8 +178,8 @@ export default function DashboardPage() {
                 });
             });
 
-            // Expenses → activity feed
-            (expensesData ?? []).forEach((exp: any) => {
+            // Process Expenses -> activity feed
+            expensesData.forEach((exp: any) => {
                 transactionsList.push({
                     id: exp.id,
                     type: 'expense',
@@ -188,36 +190,38 @@ export default function DashboardPage() {
                 });
             });
 
-            // Stock additions → activity feed
-            (stockData ?? []).forEach((stock: any) => {
+            // Process Stock -> activity feed
+            stockData.forEach((stock: any) => {
                 transactionsList.push({
                     id: stock.id,
                     type: 'stock',
                     item: stock.name || 'Stock item',
-                    amount: Number(stock.price ?? 0) * Number(stock.quantity ?? 0), // optional: show value
+                    amount: Number(stock.price ?? 0) * Number(stock.quantity ?? 0),
                     brand: String(stock.brand_id ?? ''),
                     timestamp: stock.created_at,
                 });
             });
 
-            // Newest first
+            // Sort transactions: Newest first
             transactionsList.sort(
                 (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             );
 
+            // ── 3. Generate Sparkline Data ───────────────────────────────────────
+            const currentHour = new Date().getHours();
+            const generatedSparkline: { value: number }[] = [];
+            for (let i = Math.max(0, currentHour - 11); i <= currentHour; i++) {
+                generatedSparkline.push({ value: hourlySales[i] || 0 });
+            }
+
+            // Batch React state updates together
+            setTotalExpenses(calculatedExpenses);
             setTotalSales(sumTotal);
             setBrandASales(sumBrandA);
             setBrandBSales(sumBrandB);
             setBrandASalesData(brandA);
             setBrandBSalesData(brandB);
             setTransactions(transactionsList);
-
-            // 12-hour sparkline ending at current hour
-            const currentHour = new Date().getHours();
-            const generatedSparkline: { value: number }[] = [];
-            for (let i = Math.max(0, currentHour - 11); i <= currentHour; i++) {
-                generatedSparkline.push({ value: hourlySales[i] || 0 });
-            }
             setSparklineData(generatedSparkline.length > 0 ? generatedSparkline : [{ value: 0 }]);
         } catch (err) {
             console.error('Dashboard Error:', err);

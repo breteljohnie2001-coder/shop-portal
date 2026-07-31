@@ -2,15 +2,17 @@
 
 import { Smartphone, Banknote, Package, Check, Clock, FileEdit, Trash2, Send, ShieldX } from 'lucide-react';
 import { PastSale, UserRole } from "@/types/types";
+
 interface SaleItemCardProps {
     sale: PastSale;
     userRole: UserRole;
     assignedBrand: string | null;
     onEdit: (sale: PastSale) => void;
     onVoid: (sale: PastSale) => void;
-    onRequestFix: () => void; // Updated to open confirmation modal in parent
+    onRequestFix: () => void;
     onApproveFix: (id: string) => void;
 }
+
 export default function SaleItemCard({
                                          sale,
                                          userRole,
@@ -20,12 +22,18 @@ export default function SaleItemCard({
                                          onRequestFix,
                                          onApproveFix,
                                      }: SaleItemCardProps) {
-    const isWithin15Minutes = (createdAt: Date) => {
-        const diffInMinutes = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60);
-        return diffInMinutes <= 15;
+    // 1. Safe Date parsing (handles both Date object and ISO string)
+    const isWithin15Minutes = (createdAt: Date | string) => {
+        if (!createdAt) return false;
+        const dateObj = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+        const diffInMinutes = (Date.now() - dateObj.getTime()) / (1000 * 60);
+        return diffInMinutes >= 0 && diffInMinutes <= 15;
     };
 
     const isUnlocked = isWithin15Minutes(sale.createdAt);
+
+    // 2. Safe time string fallback
+    const formattedTime = sale.time || (sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
     const saleBrand = sale.brandId?.toLowerCase() || '';
     const userBrand = assignedBrand?.toLowerCase();
@@ -33,8 +41,12 @@ export default function SaleItemCard({
     // Check brand authorization for employees
     const isBrandAssociated = userRole === 'boss' || !userBrand || userBrand === saleBrand;
 
-    const canEdit = isBrandAssociated && (userRole === 'boss' || isUnlocked || sale.bossApprovedFix);
-    const canVoid = isBrandAssociated && (userRole === 'boss' || isUnlocked || sale.bossApprovedFix);
+    // Display "Approved by Boss" if associated
+    const isApprovedVisible = sale.bossApprovedFix && isBrandAssociated;
+
+    // Edit and Void permissions
+    const canEdit = isBrandAssociated && (userRole === 'boss' || isUnlocked || isApprovedVisible);
+    const canVoid = isBrandAssociated && (userRole === 'boss' || isUnlocked || isApprovedVisible);
 
     return (
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-4 shadow-md transition-all hover:border-neutral-700 space-y-3">
@@ -52,10 +64,10 @@ export default function SaleItemCard({
                         </div>
 
                         <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
-                            <span className="text-[11px] text-neutral-400">{sale.time}</span>
+                            <span className="text-[11px] text-neutral-400">{formattedTime}</span>
                             <span className="text-neutral-700 text-[10px]">•</span>
 
-                            {sale.paymentMethod === 'M-Pesa' ? (
+                            {sale.paymentMethod === 'M-Pesa' || (sale.paymentMethod as string) === 'MPESA' ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                                     <Smartphone className="h-2.5 w-2.5" /> M-Pesa
                                 </span>
@@ -74,7 +86,7 @@ export default function SaleItemCard({
                 </p>
             </div>
 
-            {/* Card Items Row - Renders clean individual items with prices */}
+            {/* Card Items Row */}
             <div className="pt-2 border-t border-neutral-800/80 flex flex-col gap-1.5">
                 {sale.items && sale.items.length > 0 ? (
                     sale.items.map((item, idx) => (
@@ -111,7 +123,7 @@ export default function SaleItemCard({
                         <span className="text-emerald-400 flex items-center gap-1">
                             <Clock className="h-3 w-3" /> Editable (15m window)
                         </span>
-                    ) : sale.bossApprovedFix ? (
+                    ) : isApprovedVisible ? (
                         <span className="text-emerald-400 flex items-center gap-1 font-medium">
                             <Check className="h-3 w-3" /> Approved by Boss
                         </span>
@@ -148,7 +160,7 @@ export default function SaleItemCard({
                             </span>
                         ) : (
                             <button
-                                onClick={onRequestFix} // Triggers warning modal in parent
+                                onClick={onRequestFix}
                                 className="flex items-center gap-1 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-amber-400 hover:bg-amber-500/20 transition-colors"
                             >
                                 <Send className="h-3 w-3" /> Request Fix

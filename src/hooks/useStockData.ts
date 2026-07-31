@@ -1,49 +1,40 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-
 import { EditableItem } from '@/components/dashboard/modals/EditStockModal';
-import {createClient} from "@/lib/supabase/client";
-import {StockItem, UserRole} from "@/types/types";
+import { createClient } from "@/lib/supabase/client";
+import { StockItem } from "@/types/types";
+import { useUser } from "@/context/UserContext";
+
+const supabase = createClient();
 
 export function useStockData() {
-    const supabase = createClient();
+    const { user } = useUser();
 
-    const [userRole, setUserRole] = useState<UserRole>('employee');
-    const [assignedBrand, setAssignedBrand] = useState<string | null>(null);
     const [inventory, setInventory] = useState<StockItem[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch user profile, role, and assigned brand
-    useEffect(() => {
-        const fetchUserProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role, assigned_brand')
-                .eq('id', user.id)
-                .single();
-
-            if (profile) {
-                setUserRole(profile.role === 'owner' || profile.role === 'boss' ? 'boss' : 'employee');
-                setAssignedBrand(profile.assigned_brand ? String(profile.assigned_brand).toLowerCase() : null);
-            }
-        };
-
-        fetchUserProfile();
-    }, [supabase]);
+    const userRole = user?.role === 'boss' || user?.role === 'owner' ? 'boss' : 'employee';
+    const assignedBrand = user?.assignedBrand || null;
+    const isBrandLocked = user?.isBrandLocked ?? false;
 
     // Fetch inventory list
     const fetchInventory = useCallback(async () => {
+        if (!user) return;
         setLoading(true);
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('inventory')
             .select('*')
-            .eq('is_voided', false) // Exclude voided stock
+            .eq('is_voided', false)
             .order('created_at', { ascending: false });
+
+        // Filter inventory if user is locked to a specific brand
+        if (isBrandLocked && assignedBrand) {
+            query = query.eq('brand_id', assignedBrand);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Supabase Inventory Error:', error.message);
@@ -54,7 +45,7 @@ export function useStockData() {
                 brandId: String(item.brand_id).toLowerCase(),
                 quantity: item.quantity,
                 price: item.price,
-                imageUrl: item.image || undefined, // Reads the 'image' column from Supabase
+                imageUrl: item.image || undefined,
                 createdAt: new Date(item.created_at),
                 fixRequested: item.fix_requested,
                 bossApprovedFix: item.boss_approved_fix,
@@ -62,7 +53,7 @@ export function useStockData() {
             setInventory(formattedItems);
         }
         setLoading(false);
-    }, [supabase]);
+    }, [user, isBrandLocked, assignedBrand]);
 
     useEffect(() => {
         fetchInventory();
@@ -88,7 +79,13 @@ export function useStockData() {
         setInventory((prev) =>
             prev.map((i) =>
                 i.id === updatedItem.id
-                    ? { ...i, name: updatedItem.name, price: updatedItem.price, quantity: updatedItem.quantity, bossApprovedFix: false }
+                    ? {
+                        ...i,
+                        name: updatedItem.name,
+                        price: updatedItem.price,
+                        quantity: updatedItem.quantity,
+                        bossApprovedFix: false,
+                    }
                     : i
             )
         );
@@ -96,7 +93,6 @@ export function useStockData() {
     };
 
     const handleConfirmVoid = async (itemId: string) => {
-        // Perform a soft delete instead of hard delete
         const { error } = await supabase
             .from('inventory')
             .update({ is_voided: true })
@@ -108,18 +104,23 @@ export function useStockData() {
             return false;
         }
 
-        // Remove from UI state
         setInventory((prev) => prev.filter((i) => i.id !== itemId));
         return true;
     };
 
     const handleRequestFix = async (id: string) => {
-        const { error } = await supabase.from('inventory').update({ fix_requested: true }).eq('id', id);
+        const { error } = await supabase
+            .from('inventory')
+            .update({ fix_requested: true })
+            .eq('id', id);
+
         if (error) {
             alert('Failed to submit fix request');
             return;
         }
-        setInventory((prev) => prev.map((i) => (i.id === id ? { ...i, fixRequested: true } : i)));
+        setInventory((prev) =>
+            prev.map((i) => (i.id === id ? { ...i, fixRequested: true } : i))
+        );
     };
 
     const handleApproveFix = async (id: string) => {
@@ -133,7 +134,11 @@ export function useStockData() {
             return;
         }
         setInventory((prev) =>
-            prev.map((i) => (i.id === id ? { ...i, fixRequested: false, bossApprovedFix: true } : i))
+            prev.map((i) =>
+                i.id === id
+                    ? { ...i, fixRequested: false, bossApprovedFix: true }
+                    : i
+            )
         );
     };
 

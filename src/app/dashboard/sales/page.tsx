@@ -11,19 +11,13 @@ import SaleItemCard from "@/components/Sale/SaleItemCard";
 import ConfirmFixModal from "@/components/dashboard/modals/ConfirmFixModal";
 
 export default function SalesRecordsPage() {
-    // Default to today's date in YYYY-MM-DD
     const [selectedDate, setSelectedDate] = useState<string>(
         new Date().toISOString().split('T')[0]
     );
 
     const [saleToFix, setSaleToFix] = useState<PastSale | null>(null);
 
-    const handleConfirmRequestFix = async () => {
-        if (!saleToFix) return;
-        await handleRequestFix(saleToFix.id);
-        setSaleToFix(null);
-    };
-
+    // Context-powered hook (No auth waterfalls, instant query cache)
     const {
         userRole,
         assignedBrand,
@@ -40,13 +34,17 @@ export default function SalesRecordsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-    // Modal states
     const [saleToEdit, setSaleToEdit] = useState<PastSale | null>(null);
     const [saleToVoid, setSaleToVoid] = useState<PastSale | null>(null);
 
+    const handleConfirmRequestFix = async () => {
+        if (!saleToFix) return;
+        await handleRequestFix(saleToFix.id);
+        setSaleToFix(null);
+    };
+
     const filteredSales = useMemo(() => {
         return salesList.filter((sale: any) => {
-            // Standardize raw brand string from brand_id or brandId
             const rawBrand = String(sale.brandId || sale.brand_id || '').toLowerCase().trim();
 
             const isBrandA =
@@ -63,10 +61,9 @@ export default function SalesRecordsPage() {
                 rawBrand.includes('budget') ||
                 rawBrand === '2';
 
-            // Match brand based on active tab, fallback to true if selectedBrand is 'ALL' or unassigned
             let matchesBrand = true;
             if (selectedBrand === 'brand_a') {
-                matchesBrand = isBrandA || (!isBrandA && !isBrandB); // Shows unmapped sales in Tab A rather than hiding
+                matchesBrand = isBrandA || (!isBrandA && !isBrandB);
             } else if (selectedBrand === 'brand_b') {
                 matchesBrand = isBrandB;
             }
@@ -134,7 +131,7 @@ export default function SalesRecordsPage() {
                 </div>
             </div>
 
-            {/* Brand Switcher */}
+            {/* Brand Switcher (Unlocked for all users) */}
             <div className="grid grid-cols-2 rounded-xl bg-neutral-900 p-1.5 border border-neutral-800/80 shadow-lg">
                 <button
                     onClick={() => setSelectedBrand('brand_a')}
