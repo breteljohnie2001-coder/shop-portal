@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Calculator } from 'lucide-react';
+import { X, Calculator, Lock } from 'lucide-react';
 
 export interface EditableSaleItem {
     id: string;
@@ -53,8 +53,8 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                 itemName,
                 clientName,
                 paymentMethod,
-                unitPrice,
-                quantity,
+                unitPrice, // retains original value
+                quantity,  // retains original value
                 receiptNo,
             },
             reason
@@ -131,29 +131,37 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                         </div>
                     </div>
 
-                    {/* Quantity & Unit Price */}
+                    {/* Quantity & Unit Price (Locked) */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-stone-400 font-medium">Quantity Sold</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-stone-400 font-medium">Quantity Sold</label>
+                                <span className="flex items-center gap-1 text-[10px] text-stone-500">
+                                    <Lock className="h-3 w-3" /> Locked
+                                </span>
+                            </div>
                             <input
                                 type="number"
-                                min="1"
-                                required
                                 value={quantity}
-                                onChange={(e) => setQuantity(Number(e.target.value))}
-                                className="w-full mt-1 rounded-xl border border-stone-800 bg-stone-950 px-3 py-2 text-white focus:outline-none focus:border-stone-700 font-mono"
+                                readOnly
+                                disabled
+                                className="w-full mt-1 rounded-xl border border-stone-800 bg-stone-900/50 px-3 py-2 text-stone-400 cursor-not-allowed font-mono select-none"
                             />
                         </div>
 
                         <div>
-                            <label className="text-stone-400 font-medium">Unit Price (KES)</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-stone-400 font-medium">Unit Price (KES)</label>
+                                <span className="flex items-center gap-1 text-[10px] text-stone-500">
+                                    <Lock className="h-3 w-3" /> Locked
+                                </span>
+                            </div>
                             <input
                                 type="number"
-                                min="0"
-                                required
                                 value={unitPrice}
-                                onChange={(e) => setUnitPrice(Number(e.target.value))}
-                                className="w-full mt-1 rounded-xl border border-stone-800 bg-stone-950 px-3 py-2 text-white focus:outline-none focus:border-stone-700 font-mono"
+                                readOnly
+                                disabled
+                                className="w-full mt-1 rounded-xl border border-stone-800 bg-stone-900/50 px-3 py-2 text-stone-400 cursor-not-allowed font-mono select-none"
                             />
                         </div>
                     </div>
@@ -162,7 +170,7 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                     <div className="rounded-xl border border-stone-800 bg-stone-950 p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-stone-400 text-[11px]">
                             <Calculator className="h-4 w-4 text-emerald-400" />
-                            <span>Recalculated Total:</span>
+                            <span>Total Amount:</span>
                         </div>
                         <span className="font-mono text-sm font-bold text-emerald-400">
                             KES {calculatedTotal.toLocaleString()}

@@ -15,22 +15,27 @@ import { createClient } from '@/lib/supabase/client';
 
 const supabase = createClient();
 
+interface InventoryVariant {
+    id: string;
+    size: string;
+    color: string;
+    quantity: number;
+}
+
 interface InventoryItem {
     id: string;
     name: string;
     price: number;
     quantity: number;
-    sizes: string[] | null;
-    colors: string[] | null;
+    variants: InventoryVariant[];
 }
 
 interface SaleLine {
-    id: string; // client-side key
+    id: string;
     inventoryId: string;
+    variantId: string; // NEW
     itemName: string;
     availableQty: number;
-    sizes: string[] | null;
-    colors: string[] | null;
     selectedSize: string;
     selectedColor: string;
     quantity: number;
@@ -54,7 +59,9 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [lines, setLines] = useState<SaleLine[]>([]);
 
-    // ─── Reset modal state on close/open ───────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Reset
+// ───────────────────────────────────────────────────────────────
     const resetForm = () => {
         setClientName('');
         setLines([]);
@@ -66,14 +73,20 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
         onClose();
     };
 
-    // ─── Load user brand + profile ──────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Load user profile
+// ───────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!isOpen) return;
 
         async function init() {
             setLoading(true);
+
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const {
+                    data: { user },
+                } = await supabase.auth.getUser();
+
                 if (!user) return;
 
                 const { data: profile } = await supabase
@@ -82,16 +95,17 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
                     .eq('id', user.id)
                     .single();
 
-                if (profile?.role === 'boss' || profile?.role === 'owner' || !profile?.assigned_brand) {
+                if (
+                    profile?.role === 'boss' ||
+                    profile?.role === 'owner' ||
+                    !profile?.assigned_brand
+                ) {
                     setBrandId('brand_a');
                     setIsBrandLocked(false);
                 } else {
-                    const assigned = String(profile.assigned_brand).toLowerCase() as 'brand_a' | 'brand_b';
-                    setBrandId(assigned);
+                    setBrandId(profile.assigned_brand as 'brand_a' | 'brand_b');
                     setIsBrandLocked(true);
                 }
-            } catch (err) {
-                console.error('Profile fetch error:', err);
             } finally {
                 setLoading(false);
             }
@@ -100,108 +114,211 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
         init();
     }, [isOpen]);
 
-    // ─── Load inventory whenever brand changes ────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Load Inventory + Variants
+// ───────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!isOpen || !brandId) return;
 
         async function loadInventory() {
             const { data, error } = await supabase
                 .from('inventory')
-                .select('id, name, price, quantity, sizes, colors')
+                .select(`
+                id,
+                name,
+                price,
+                quantity,
+                inventory_variants(
+                    id,
+                    size,
+                    color,
+                    quantity
+                )
+            `)
                 .eq('brand_id', brandId)
                 .gt('quantity', 0)
                 .order('name');
 
             if (error) {
-                console.error('Inventory fetch error:', error.message);
+                console.error(error);
                 return;
             }
 
-            setInventory(data || []);
-            setLines([]); // Clear cart items when switching brand
+            const mapped: InventoryItem[] = (data ?? []).map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                price: Number(item.price),
+                quantity: item.quantity,
+                variants: item.inventory_variants ?? [],
+            }));
+
+            setInventory(mapped);
+            setLines([]);
         }
 
         loadInventory();
     }, [isOpen, brandId]);
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-    const totalAmount = useMemo(() => {
-        return lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
-    }, [lines]);
+// ───────────────────────────────────────────────────────────────
+// Totals
+// ───────────────────────────────────────────────────────────────
+    const totalAmount = useMemo(
+        () => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
+        [lines]
+    );
 
+// ───────────────────────────────────────────────────────────────
+// Add Item
+// ───────────────────────────────────────────────────────────────
     const addLine = () => {
-        if (inventory.length === 0) return;
+        if (!inventory.length) return;
 
-        const first = inventory[0];
+        const item = inventory[0];
+
+        if (!item.variants.length) return;
+
+        const variant = item.variants[0];
+
         setLines((prev) => [
             ...prev,
             {
                 id: crypto.randomUUID(),
-                inventoryId: first.id,
-                itemName: first.name,
-                availableQty: first.quantity,
-                sizes: first.sizes,
-                colors: first.colors,
-                selectedSize: first.sizes?.[0] ?? '',
-                selectedColor: first.colors?.[0] ?? '',
+                inventoryId: item.id,
+                variantId: variant.id,
+                itemName: item.name,
+                availableQty: variant.quantity,
+                selectedSize: variant.size,
+                selectedColor: variant.color,
                 quantity: 1,
-                unitPrice: Number(first.price),
+                unitPrice: item.price,
             },
         ]);
     };
 
+// ───────────────────────────────────────────────────────────────
+// Remove Line
+// ───────────────────────────────────────────────────────────────
     const removeLine = (id: string) => {
-        setLines((prev) => prev.filter((l) => l.id !== id));
+        setLines((prev) => prev.filter((line) => line.id !== id));
     };
 
+// ───────────────────────────────────────────────────────────────
+// Update Line
+// ───────────────────────────────────────────────────────────────
     const updateLine = (id: string, patch: Partial<SaleLine>) => {
         setLines((prev) =>
-            prev.map((l) => {
-                if (l.id !== id) return l;
+            prev.map((line) => {
+                if (line.id !== id) return line;
 
-                if (patch.inventoryId && patch.inventoryId !== l.inventoryId) {
-                    const item = inventory.find((i) => i.id === patch.inventoryId);
-                    if (!item) return l;
+                let updated: SaleLine = {
+                    ...line,
+                    ...patch,
+                };
 
-                    return {
-                        ...l,
+                // 1. If Item/Product changed
+                if (
+                    patch.inventoryId &&
+                    patch.inventoryId !== line.inventoryId
+                ) {
+                    const item = inventory.find(
+                        (i) => i.id === patch.inventoryId
+                    );
+
+                    if (!item || !item.variants.length) return line;
+
+                    const variant = item.variants[0];
+
+                    updated = {
+                        ...updated,
                         inventoryId: item.id,
                         itemName: item.name,
-                        availableQty: item.quantity,
-                        sizes: item.sizes,
-                        colors: item.colors,
-                        selectedSize: item.sizes?.[0] ?? '',
-                        selectedColor: item.colors?.[0] ?? '',
-                        unitPrice: Number(item.price),
-                        quantity: Math.min(l.quantity, item.quantity),
+                        variantId: variant.id,
+                        selectedSize: variant.size,
+                        selectedColor: variant.color,
+                        availableQty: variant.quantity,
+                        unitPrice: item.price,
+                        quantity: 1,
                     };
                 }
 
-                if (patch.quantity !== undefined) {
-                    patch.quantity = Math.max(1, Math.min(patch.quantity, l.availableQty));
+                // 2. If Variant changed directly (e.g., from Variant Dropdown)
+                if (patch.variantId) {
+                    const currentItem = inventory.find(
+                        (i) => i.id === updated.inventoryId
+                    );
+                    const variant = currentItem?.variants.find(
+                        (v) => v.id === patch.variantId
+                    );
+
+                    if (variant) {
+                        updated.variantId = variant.id;
+                        updated.selectedSize = variant.size;
+                        updated.selectedColor = variant.color;
+                        updated.availableQty = variant.quantity;
+                        updated.quantity = Math.min(
+                            updated.quantity,
+                            variant.quantity
+                        );
+                    }
+                }
+                // 3. If Size or Color changed directly (e.g., from Size/Color selectors)
+                else if (
+                    patch.selectedSize !== undefined ||
+                    patch.selectedColor !== undefined
+                ) {
+                    const currentItem = inventory.find(
+                        (i) => i.id === updated.inventoryId
+                    );
+
+                    if (currentItem) {
+                        const variant = currentItem.variants.find(
+                            (v) =>
+                                v.size === updated.selectedSize &&
+                                v.color === updated.selectedColor
+                        );
+
+                        if (variant) {
+                            updated.variantId = variant.id;
+                            updated.availableQty = variant.quantity;
+                            updated.quantity = Math.min(
+                                updated.quantity,
+                                variant.quantity
+                            );
+                        }
+                    }
                 }
 
-                return { ...l, ...patch };
+                // 4. Quantity safety check
+                if (patch.quantity !== undefined) {
+                    updated.quantity = Math.max(
+                        1,
+                        Math.min(patch.quantity, updated.availableQty)
+                    );
+                }
+
+                return updated;
             })
         );
     };
-
-    // ─── Submit ───────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Submit
+// ───────────────────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         if (!brandId || lines.length === 0) return;
 
         setIsSubmitting(true);
+
         try {
             const { error } = await supabase.rpc('create_sale_with_items', {
                 p_customer_name: clientName.trim() || 'Walk-in Customer',
                 p_payment_method: paymentMethod,
                 p_brand_id: brandId,
-                p_items: lines.map((l) => ({
-                    inventory_id: l.inventoryId,
-                    quantity: l.quantity,
-                    size: l.selectedSize || null,
-                    color: l.selectedColor || null,
+                p_items: lines.map((line) => ({
+                    inventory_id: line.inventoryId,
+                    variant_id: line.variantId,
+                    quantity: line.quantity,
                 })),
             });
 
@@ -211,8 +328,8 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
             onSaveSuccess?.();
             onClose();
         } catch (err: any) {
+            console.error(err);
             alert(err.message || 'Failed to record sale');
-            console.error('Sale Submission Error:', err);
         } finally {
             setIsSubmitting(false);
         }
@@ -306,103 +423,127 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
                             )}
 
                             {lines.map((line, idx) => (
-                                <div key={line.id} className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-3 space-y-2.5">
+                                <div
+                                    key={line.id}
+                                    className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-3 space-y-2.5"
+                                >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-neutral-500">Item {idx + 1}</span>
-                                        <button type="button" onClick={() => removeLine(line.id)} className="text-neutral-500 hover:text-red-400">
+                                        <span className="text-[11px] text-neutral-500">
+                                            Item {idx + 1}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => removeLine(line.id)}
+                                            className="text-neutral-500 hover:text-red-400"
+                                        >
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
 
+                                    {/* Inventory */}
                                     <select
                                         value={line.inventoryId}
-                                        onChange={(e) => updateLine(line.id, { inventoryId: e.target.value })}
-                                        className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white focus:outline-none"
+                                        onChange={(e) =>
+                                            updateLine(line.id, {
+                                                inventoryId: e.target.value,
+                                            })
+                                        }
+                                        className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-white"
                                     >
                                         {inventory.map((item) => (
                                             <option key={item.id} value={item.id}>
-                                                {item.name} (stock: {item.quantity})
+                                                {item.name}
                                             </option>
                                         ))}
                                     </select>
 
-                                    {/* Variant Selectors */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {line.sizes && line.sizes.length > 0 && (
-                                            <div>
-                                                <label className="text-[10px] text-neutral-500 mb-0.5 block">Size</label>
-                                                <select
-                                                    value={line.selectedSize}
-                                                    onChange={(e) => updateLine(line.id, { selectedSize: e.target.value })}
-                                                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs"
-                                                >
-                                                    {line.sizes.map((s) => (
-                                                        <option key={s} value={s}>
-                                                            {s}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-                                        {line.colors && line.colors.length > 0 && (
-                                            <div>
-                                                <label className="text-[10px] text-neutral-500 mb-0.5 block">Colour</label>
-                                                <select
-                                                    value={line.selectedColor}
-                                                    onChange={(e) => updateLine(line.id, { selectedColor: e.target.value })}
-                                                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs"
-                                                >
-                                                    {line.colors.map((c) => (
-                                                        <option key={c} value={c}>
-                                                            {c}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
+                                    {/* Variant */}
+                                    {inventory.find(i => i.id === line.inventoryId)?.variants.length ? (
+                                        <div>
+                                            <label className="mb-1 block text-[10px] text-neutral-500">
+                                                Variant
+                                            </label>
 
-                                    {/* Quantity and Pricing */}
+                                            <select
+                                                value={line.variantId}
+                                                onChange={(e) =>
+                                                    updateLine(line.id, {
+                                                        variantId: e.target.value,
+                                                    })
+                                                }
+                                                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs"
+                                            >
+                                                {inventory
+                                                    .find(i => i.id === line.inventoryId)!
+                                                    .variants.map((variant) => (
+                                                        <option
+                                                            key={variant.id}
+                                                            value={variant.id}
+                                                        >
+                                                            {variant.size} / {variant.color} (Stock:{" "}
+                                                            {variant.quantity})
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Quantity */}
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label className="text-[10px] text-neutral-500 mb-0.5 block">
+                                            <label className="mb-1 block text-[10px] text-neutral-500">
                                                 Qty (max {line.availableQty})
                                             </label>
-                                            <div className="flex items-center rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden h-9">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateLine(line.id, { quantity: Math.max(1, line.quantity - 1) })}
-                                                    className="w-9 h-full flex items-center justify-center text-neutral-400 hover:bg-neutral-800 text-sm"
-                                                >
-                                                    −
-                                                </button>
-                                                <span className="flex-1 text-center text-xs font-mono">
-                                                    {line.quantity}
-                                                </span>
+
+                                            <div className="flex h-9 items-center overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
                                                 <button
                                                     type="button"
                                                     onClick={() =>
                                                         updateLine(line.id, {
-                                                            quantity: Math.min(line.availableQty, line.quantity + 1),
+                                                            quantity: Math.max(1, line.quantity - 1),
                                                         })
                                                     }
-                                                    className="w-9 h-full flex items-center justify-center text-neutral-400 hover:bg-neutral-800 text-sm"
+                                                    className="flex h-full w-9 items-center justify-center hover:bg-neutral-800"
+                                                >
+                                                    −
+                                                </button>
+
+                                                <span className="flex-1 text-center text-xs font-mono">
+                                                    {line.quantity}
+                                                </span>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        updateLine(line.id, {
+                                                            quantity: Math.min(
+                                                                line.availableQty,
+                                                                line.quantity + 1
+                                                            ),
+                                                        })
+                                                    }
+                                                    className="flex h-full w-9 items-center justify-center hover:bg-neutral-800"
                                                 >
                                                     +
                                                 </button>
                                             </div>
                                         </div>
+
                                         <div>
-                                            <label className="text-[10px] text-neutral-500 mb-0.5 block">Unit Price</label>
-                                            <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-mono text-neutral-300">
+                                            <label className="mb-1 block text-[10px] text-neutral-500">
+                                                Unit Price
+                                            </label>
+
+                                            <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-mono">
                                                 KES {line.unitPrice.toLocaleString()}
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="text-right text-[11px] text-neutral-400">
-                                        Subtotal:{' '}
-                                        <span className="font-mono text-emerald-400/80">
+                                        Subtotal{" "}
+                                        <span className="font-mono text-emerald-400">
                                             KES {(line.quantity * line.unitPrice).toLocaleString()}
                                         </span>
                                     </div>
