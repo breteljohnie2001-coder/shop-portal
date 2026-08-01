@@ -136,6 +136,7 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
                 )
             `)
                 .eq('brand_id', brandId)
+                .eq('is_voided', false) // 👈 Filter out voided items
                 .gt('quantity', 0)
                 .order('name');
 

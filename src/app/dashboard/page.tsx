@@ -75,7 +75,10 @@ export default function DashboardPage() {
                             item_name,
                             quantity,
                             unit_price,
-                            subtotal
+                            subtotal,
+                            size,
+                            color,
+                            variant_id
                         )
                     `)
                     .eq('is_voided', false)
@@ -128,6 +131,9 @@ export default function DashboardPage() {
                         name: item.item_name,
                         quantity: Number(item.quantity || 1),
                         price: Number(item.unit_price || amount / (item.quantity || 1)),
+                        size: item.size || null,
+                        color: item.color || null,
+                        variantId: item.variant_id || null,
                     }));
                 } else {
                     items = [
@@ -136,6 +142,9 @@ export default function DashboardPage() {
                             name: sale.receipt_no ? `Receipt #${sale.receipt_no}` : 'General Sale',
                             quantity: 1,
                             price: amount,
+                            size: null,
+                            color: null,
+                            variantId: null,
                         },
                     ];
                 }
@@ -162,11 +171,17 @@ export default function DashboardPage() {
                     sumBrandB += amount;
                 }
 
-                const primaryItemName = items[0]?.name ?? 'Sale Item';
+                const primaryItem = items[0];
+                let primaryItemDisplay = primaryItem?.name ?? 'Sale Item';
+                if (primaryItem?.size || primaryItem?.color) {
+                    const attrs = [primaryItem.size, primaryItem.color].filter(Boolean).join('/');
+                    primaryItemDisplay += ` (${attrs})`;
+                }
+
                 const displayItem =
                     items.length > 1
-                        ? `${primaryItemName} (+${items.length - 1} more)`
-                        : primaryItemName;
+                        ? `${primaryItemDisplay} (+${items.length - 1} more)`
+                        : primaryItemDisplay;
 
                 transactionsList.push({
                     id: sale.id,

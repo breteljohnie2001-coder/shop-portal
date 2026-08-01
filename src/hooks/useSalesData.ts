@@ -44,15 +44,16 @@ export function useSalesData(selectedDate: string) {
                         item_name,
                         quantity,
                         unit_price,
-                        subtotal
+                        subtotal,
+                        size,
+                        color,
+                        variant_id
                     )
                 `)
                 .eq('is_voided', false)
                 .gte('created_at', startOfDay)
                 .lte('created_at', endOfDay)
                 .order('created_at', { ascending: false });
-
-
 
             const { data, error } = await query;
 
@@ -71,12 +72,18 @@ export function useSalesData(selectedDate: string) {
                         name: item.item_name,
                         quantity: Number(item.quantity || 1),
                         price: Number(item.unit_price || totalAmount / (item.quantity || 1)),
+                        size: item.size || null,
+                        color: item.color || null,
+                        variantId: item.variant_id || null,
                     }))
                     : [{
                         id: s.id,
                         name: s.receipt_no ? `Receipt #${s.receipt_no}` : 'General Sale Item',
                         quantity: 1,
                         price: totalAmount,
+                        size: null,
+                        color: null,
+                        variantId: null,
                     }];
 
                 return {

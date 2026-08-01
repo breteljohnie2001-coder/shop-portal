@@ -97,6 +97,20 @@ export default function SaleItemCard({
                             <div className="flex items-center gap-2 min-w-0">
                                 <Package className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
                                 <span className="font-medium text-neutral-200 truncate">{item.name}</span>
+
+                                {/* 🏷️ Render Size Badge */}
+                                {item.size && (
+                                    <span className="px-1.5 py-0.2 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300 font-mono shrink-0">
+                                        {item.size}
+                                    </span>
+                                )}
+
+                                {/* 🏷️ Render Color Badge */}
+                                {item.color && (
+                                    <span className="px-1.5 py-0.2 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300 shrink-0">
+                                        {item.color}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex items-center gap-3 shrink-0 font-mono text-[11px]">
                                 <span className="text-neutral-500">x{item.quantity}</span>

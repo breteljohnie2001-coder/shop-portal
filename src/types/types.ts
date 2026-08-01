@@ -1,6 +1,5 @@
-
 // ─── User & Authorization Types ──────────────────────────────────────────────
-    export type UserRole = 'boss' | 'employee' | string;
+export type UserRole = 'boss' | 'employee' | string;
 export type BrandId = 'brand_a' | 'brand_b';
 
 export interface AppUser {
@@ -18,6 +17,9 @@ export interface PurchasedProduct {
     name: string;
     quantity: number;
     price: number;
+    size?: string | null;      // 👈 Added size variant attribute
+    color?: string | null;     // 👈 Added color variant attribute
+    variantId?: string | null; // 👈 Added variant ID reference
 }
 
 export type PaymentMethod = 'M-Pesa' | 'Cash' | 'MPESA' | string;

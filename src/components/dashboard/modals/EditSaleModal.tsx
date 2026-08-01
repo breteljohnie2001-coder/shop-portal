@@ -8,7 +8,7 @@ export interface EditableSaleItem {
     receiptNo: string;
     itemName: string;
     clientName: string;
-    paymentMethod: 'MPESA' | 'Cash' | 'Card';
+    paymentMethod: 'MPESA' | 'Cash';
     unitPrice: number;
     quantity: number;
 }
@@ -23,7 +23,7 @@ interface EditSaleModalProps {
 export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSaleModalProps) {
     const [itemName, setItemName] = useState('');
     const [clientName, setClientName] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'MPESA' | 'Cash' | 'Card'>('MPESA');
+    const [paymentMethod, setPaymentMethod] = useState<'MPESA' | 'Cash' >('MPESA');
     const [unitPrice, setUnitPrice] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [receiptNo, setReceiptNo] = useState('');
@@ -121,12 +121,11 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                             <label className="text-stone-400 font-medium">Payment Method</label>
                             <select
                                 value={paymentMethod}
-                                onChange={(e) => setPaymentMethod(e.target.value as 'MPESA' | 'Cash' | 'Card')}
+                                onChange={(e) => setPaymentMethod(e.target.value as 'MPESA' | 'Cash')}
                                 className="w-full mt-1 rounded-xl border border-stone-800 bg-stone-950 px-3 py-2 text-white focus:outline-none focus:border-stone-700"
                             >
                                 <option value="MPESA">M-PESA</option>
                                 <option value="Cash">Cash</option>
-                                <option value="Card">Card</option>
                             </select>
                         </div>
                     </div>
