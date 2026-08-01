@@ -59,6 +59,7 @@ export interface StockItem {
     imageUrl?: string;
     fixRequested?: boolean;
     bossApprovedFix?: boolean;
+    hasSales?: boolean;
 
     // Detailed stock breakdown by color and size
     variants: StockVariant[];
@@ -84,5 +85,19 @@ export interface EditableSaleItem {
     unitPrice: number;
     quantity: number;
 }
+
+export type InventoryRow = {
+    id: string;
+    name: string;
+    brand_id: string;
+    quantity: number;
+    price: number;
+    image: string | null;
+    created_at: string;
+    fix_requested: boolean;
+    boss_approved_fix: boolean;
+    inventory_variants: StockVariant[];
+}
+
 
 

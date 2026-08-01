@@ -11,6 +11,7 @@ import {
     Trash2,
     ShieldX,
     X,
+    ShoppingCart,
 } from 'lucide-react';
 import { StockItem, UserRole } from '@/types/types';
 
@@ -48,7 +49,8 @@ export default function StockItemCard({
         return diffInMinutes <= 15;
     };
 
-    const isUnlocked = isWithin15Minutes(item.createdAt);
+    // 🔒 Lock window check: Under 15m AND no sales recorded
+    const isUnlocked = isWithin15Minutes(item.createdAt) && !item.hasSales;
 
     const itemBrand = item.brandId.toLowerCase();
     const userBrand = assignedBrand?.toLowerCase();
@@ -58,14 +60,17 @@ export default function StockItemCard({
         !userBrand ||
         userBrand === itemBrand;
 
+    // 🔒 Guard: Block edits/voids if sales have occurred against this item (unless boss explicitly overrides)
     const canEdit =
         isBrandAssociated &&
+        !item.hasSales &&
         (userRole === 'boss' ||
             isUnlocked ||
             !!item.bossApprovedFix);
 
     const canVoid =
         isBrandAssociated &&
+        !item.hasSales &&
         (userRole === 'boss' ||
             isUnlocked ||
             !!item.bossApprovedFix);
@@ -128,7 +133,12 @@ export default function StockItemCard({
                 {/* Footer */}
                 <div className="pt-2.5 border-t border-stone-800/80 flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5">
-                        {isUnlocked ? (
+                        {item.hasSales ? (
+                            <span className="text-amber-400/90 flex items-center gap-1 font-medium">
+                                <ShoppingCart className="h-3 w-3" />
+                                Locked (Sales Recorded)
+                            </span>
+                        ) : isUnlocked ? (
                             <span className="text-emerald-400 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 Editable (15m window)
@@ -173,6 +183,7 @@ export default function StockItemCard({
                         {!canEdit &&
                             userRole === 'employee' &&
                             isBrandAssociated &&
+                            !item.hasSales &&
                             (item.fixRequested ? (
                                 <span className="text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
                                     Approval Requested

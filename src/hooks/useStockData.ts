@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { EditableItem } from '@/components/dashboard/modals/EditStockModal';
 import { createClient } from '@/lib/supabase/client';
-import { StockItem, StockVariant } from '@/types/types';
+import { StockItem, StockVariant, InventoryRow } from '@/types/types';
 import { useUser } from '@/context/UserContext';
 
 const supabase = createClient();
@@ -18,23 +18,6 @@ type EditableStockVariant = Omit<StockVariant, 'id'> & {
 
 type EditableItemWithVariants = EditableItem & {
     variants?: EditableStockVariant[];
-};
-
-/**
- * Shape of the inventory row returned by Supabase,
- * including the related inventory_variants records.
- */
-type InventoryRow = {
-    id: string;
-    name: string;
-    brand_id: string;
-    quantity: number;
-    price: number;
-    image: string | null;
-    created_at: string;
-    fix_requested: boolean;
-    boss_approved_fix: boolean;
-    inventory_variants: StockVariant[];
 };
 
 export function useStockData() {
@@ -52,7 +35,7 @@ export function useStockData() {
     const isBrandLocked = user?.isBrandLocked ?? false;
 
     // ─────────────────────────────────────────────────────────────
-    // Fetch inventory + detailed color/size stock breakdown
+    // Fetch inventory + detailed variants + linked sale_items check
     // ─────────────────────────────────────────────────────────────
     const fetchInventory = useCallback(async () => {
         if (!user) return;
@@ -70,6 +53,9 @@ export function useStockData() {
                     quantity,
                     created_at,
                     updated_at
+                ),
+                sale_items (
+                    id
                 )
             `)
             .eq('is_voided', false)
@@ -83,7 +69,7 @@ export function useStockData() {
 
         if (data) {
             const formattedItems: StockItem[] = (
-                data as unknown as InventoryRow[]
+                data as unknown as (InventoryRow & { sale_items?: { id: string }[] })[]
             ).map((item) => ({
                 id: item.id,
                 name: item.name,
@@ -94,6 +80,9 @@ export function useStockData() {
                 createdAt: new Date(item.created_at),
                 fixRequested: item.fix_requested,
                 bossApprovedFix: item.boss_approved_fix,
+
+                // 🔒 Lock Flag: True if 1 or more non-voided sales match this item
+                hasSales: Array.isArray(item.sale_items) && item.sale_items.length > 0,
 
                 variants: (item.inventory_variants ?? []).map(
                     (variant: StockVariant) => ({
@@ -197,8 +186,7 @@ export function useStockData() {
                 }
             }
 
-            // 2b. Update existing variants one by one
-            // and insert new variants.
+            // 2b. Update existing variants one by one and insert new variants
             for (const variant of updatedItem.variants) {
                 if (variant.id) {
                     const { error: updateVariantError } = await supabase
