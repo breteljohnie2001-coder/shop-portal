@@ -115,7 +115,7 @@ export default function SaleItemCard({
                             <div className="flex items-center gap-3 shrink-0 font-mono text-[11px]">
                                 <span className="text-neutral-500">x{item.quantity}</span>
                                 <span className="text-neutral-400">
-                                    KES {(Number(item.price || 0) * Number(item.quantity || 1)).toLocaleString()}
+                                    KES {item.price}
                                 </span>
                             </div>
                         </div>

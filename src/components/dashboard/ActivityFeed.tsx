@@ -78,19 +78,6 @@ export default function ActivityFeed({
                         <CalendarCheck className="h-3 w-3" />
                         Today
                     </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowOnlyToday(false)}
-                        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                            !showOnlyToday
-                                ? 'bg-neutral-800 text-white shadow-sm'
-                                : 'text-neutral-400 hover:text-neutral-200'
-                        }`}
-                    >
-                        <CalendarDays className="h-3 w-3" />
-                        All
-                    </button>
                 </div>
             </div>
 

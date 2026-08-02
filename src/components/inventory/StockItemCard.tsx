@@ -43,14 +43,9 @@ export default function StockItemCard({
         const createdTime = new Date(createdAt).getTime();
         if (isNaN(createdTime)) return false;
 
-        const diffInMinutes =
-            (Date.now() - createdTime) / (1000 * 60);
-
+        const diffInMinutes = (Date.now() - createdTime) / (1000 * 60);
         return diffInMinutes <= 15;
     };
-
-    // 🔒 Lock window check: Under 15m AND no sales recorded
-    const isUnlocked = isWithin15Minutes(item.createdAt) && !item.hasSales;
 
     const itemBrand = item.brandId.toLowerCase();
     const userBrand = assignedBrand?.toLowerCase();
@@ -60,35 +55,36 @@ export default function StockItemCard({
         !userBrand ||
         userBrand === itemBrand;
 
-    // 🔒 Guard: Block edits/voids if sales have occurred against this item (unless boss explicitly overrides)
+    const inside15MinWindow = isWithin15Minutes(item.createdAt);
+
+    // Strict block: Inside 15m window WITH recorded sales
+    const isBlockedByRecentSale = inside15MinWindow && !!item.hasSales;
+
     const canEdit =
         isBrandAssociated &&
-        !item.hasSales &&
+        !isBlockedByRecentSale &&
         (userRole === 'boss' ||
-            isUnlocked ||
+            (inside15MinWindow && !item.hasSales) ||
             !!item.bossApprovedFix);
 
     const canVoid =
         isBrandAssociated &&
-        !item.hasSales &&
+        !isBlockedByRecentSale &&
         (userRole === 'boss' ||
-            isUnlocked ||
+            (inside15MinWindow && !item.hasSales) ||
             !!item.bossApprovedFix);
 
     return (
         <>
-            {/* Stock Card */}
             <div
                 onClick={onViewDetails}
                 className="rounded-2xl border border-stone-800 bg-stone-900 p-4 space-y-3 cursor-pointer hover:border-stone-700 transition-colors"
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {/* Image */}
                         <div
                             onClick={(e) => {
                                 e.stopPropagation();
-
                                 if (item.imageUrl && !imgError) {
                                     setIsImageOpen(true);
                                 }
@@ -118,7 +114,6 @@ export default function StockItemCard({
                             <p className="text-sm font-semibold text-white">
                                 {item.name}
                             </p>
-
                             <p className="text-xs text-stone-400 font-mono">
                                 KES {item.price.toLocaleString()}
                             </p>
@@ -130,15 +125,14 @@ export default function StockItemCard({
                     </span>
                 </div>
 
-                {/* Footer */}
                 <div className="pt-2.5 border-t border-stone-800/80 flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5">
-                        {item.hasSales ? (
+                        {isBlockedByRecentSale ? (
                             <span className="text-amber-400/90 flex items-center gap-1 font-medium">
                                 <ShoppingCart className="h-3 w-3" />
-                                Locked (Sales Recorded)
+                                Locked (Sale Recorded)
                             </span>
-                        ) : isUnlocked ? (
+                        ) : inside15MinWindow ? (
                             <span className="text-emerald-400 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 Editable (15m window)
@@ -180,19 +174,18 @@ export default function StockItemCard({
                             </button>
                         )}
 
+                        {/* Request Boss Fix button is strictly hidden during the 15m sale lock */}
                         {!canEdit &&
+                            !isBlockedByRecentSale &&
                             userRole === 'employee' &&
                             isBrandAssociated &&
-                            !item.hasSales &&
                             (item.fixRequested ? (
                                 <span className="text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
                                     Approval Requested
                                 </span>
                             ) : (
                                 <button
-                                    onClick={() =>
-                                        onRequestFix(item.id)
-                                    }
+                                    onClick={() => onRequestFix(item.id)}
                                     className="flex items-center gap-1 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-amber-400 hover:bg-amber-500/20"
                                 >
                                     <Send className="h-3 w-3" />
@@ -201,6 +194,7 @@ export default function StockItemCard({
                             ))}
 
                         {!canEdit &&
+                            !isBlockedByRecentSale &&
                             userRole === 'employee' &&
                             !isBrandAssociated && (
                                 <span className="text-stone-500 flex items-center gap-1 text-[10px]">
@@ -210,11 +204,10 @@ export default function StockItemCard({
                             )}
 
                         {userRole === 'boss' &&
+                            !isBlockedByRecentSale &&
                             item.fixRequested && (
                                 <button
-                                    onClick={() =>
-                                        onApproveFix(item.id)
-                                    }
+                                    onClick={() => onApproveFix(item.id)}
                                     className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-emerald-400 hover:bg-emerald-500/20"
                                 >
                                     Approve Fix
@@ -224,7 +217,6 @@ export default function StockItemCard({
                 </div>
             </div>
 
-            {/* Image Lightbox */}
             {isImageOpen && item.imageUrl && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
@@ -255,7 +247,6 @@ export default function StockItemCard({
                             <p className="text-sm font-bold text-white">
                                 {item.name}
                             </p>
-
                             <p className="text-xs text-stone-400 font-mono">
                                 KES {item.price.toLocaleString()}
                             </p>

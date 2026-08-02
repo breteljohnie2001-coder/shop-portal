@@ -99,5 +99,50 @@ export type InventoryRow = {
     inventory_variants: StockVariant[];
 }
 
+export interface WeeklyBrandPerformance {
+    day: string;
+    beeTrendy: number;
+    baddie: number;
+}
 
+export interface FastMovingItem {
+    id: string;
+    name: string;
+    brandId: string;
+    qtySold: number;
+    revenue: number;
+}
+
+export interface NewStockReviewItem {
+    id: string;
+    name: string;
+    brandId: string;
+    addedDate: string;
+    qtySold: number;
+    currentStock: number;
+    imageUrl?: string;
+}
+
+export interface RestockAlertItem {
+    id: string;
+    name: string;
+    brandId: string;
+    currentStock: number;
+    threshold: number;
+}
+
+export interface SlowMovingItem {
+    id: string;
+    name: string;
+    brandId: string;
+    qtySold: number;
+}
+
+export interface ChangeLogItem {
+    id: string;
+    time: string;
+    user: string;
+    action: string;
+    details: string;
+}
 
