@@ -20,7 +20,7 @@ export function StockAuditSection({ restocking, slowest }: Props) {
                     </h2>
                 </div>
                 <span className="text-xs font-mono text-neutral-400 bg-neutral-950 px-2.5 py-1 rounded-lg border border-neutral-800">
-          Every Saturday Evening
+          Saturday from 4:00 PM
         </span>
             </div>
 

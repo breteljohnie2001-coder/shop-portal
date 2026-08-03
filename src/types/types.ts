@@ -144,5 +144,6 @@ export interface ChangeLogItem {
     user: string;
     action: string;
     details: string;
+    brandId?: string | null;
 }
 

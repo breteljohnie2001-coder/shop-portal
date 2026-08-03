@@ -24,7 +24,7 @@ export function useReportsData(
         queryFn: async () => {
             if (!user) return null;
 
-            // ─── Date ranges (Mon → Sun of the selected week) ───────────────────
+            // ─── Date ranges ───────────────────────────────────────────────────
             const targetDate = new Date(selectedDateStr);
             const dayOfWeek = targetDate.getDay();
             const distanceToMonday = (dayOfWeek + 6) % 7;
@@ -40,7 +40,10 @@ export function useReportsData(
             const startOfDay = new Date(`${selectedDateStr}T00:00:00`).toISOString();
             const endOfDay = new Date(`${selectedDateStr}T23:59:59.999`).toISOString();
 
-            // ─── A. Weekly Brand Performance ────────────────────────────────────
+            const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+            const twoDaysAgo = new Date(Date.now() - TWO_DAYS_MS);
+
+            // ─── A. Weekly Brand Performance ───────────────────────────────────
             const { data: weeklySales, error: weeklyErr } = await supabase
                 .from('sales')
                 .select('brand_id, total_amount, created_at')
@@ -85,7 +88,7 @@ export function useReportsData(
                 baddie: daysMap[day].baddie,
             }));
 
-            // ─── B. Daily Fast-Moving Items (Top 3) ─────────────────────────────
+            // ─── B. Daily Fast-Moving Items (Top 3) ────────────────────────────
             const { data: dailyItems, error: dailyErr } = await supabase
                 .from('sale_items')
                 .select(`
@@ -129,7 +132,7 @@ export function useReportsData(
                 .slice(0, 3)
                 .map((item, idx) => ({ id: `fast-${idx}`, ...item }));
 
-            // ─── C. Inventory (New Stock + Restock + Slow movers) ───────────────
+            // ─── C. Inventory (New Stock ≤ 2 days + Restock + Slow movers) ─────
             const { data: stockItems, error: stockErr } = await supabase
                 .from('inventory')
                 .select(`
@@ -162,7 +165,7 @@ export function useReportsData(
             > = {};
 
             (stockItems || []).forEach((item: any) => {
-                // Only count non-voided sales inside the current week
+                // Weekly sales only
                 const weeklySold = (item.sale_items || []).reduce((acc: number, s: any) => {
                     if (s.sales?.is_voided) return acc;
                     const saleDate = new Date(s.sales?.created_at);
@@ -177,9 +180,10 @@ export function useReportsData(
                     0
                 );
 
-                // 1. New stock with low/zero movement (added this week)
+                // 1. New stock ≤ 2 days old with low/zero movement
                 const createdDate = new Date(item.created_at);
-                const isRecent = createdDate >= startOfWeek;
+                const isRecent = createdDate >= twoDaysAgo;
+
                 if (isRecent && totalSoldAllTime <= 1) {
                     newStockReview.push({
                         id: item.id,
@@ -207,7 +211,7 @@ export function useReportsData(
                     });
                 }
 
-                // 3. Slow-movers (weekly)
+                // 3. Slow-movers (this week)
                 weeklyItemSalesMap[item.id] = {
                     name: item.name,
                     brandId: String(item.brand_id).toLowerCase(),
@@ -220,42 +224,38 @@ export function useReportsData(
                 .sort((a, b) => a.qtySold - b.qtySold)
                 .slice(0, 3);
 
-            // ─── D. Activity Logs ───────────────────────────────────────────────
+            // ─── D. Activity Logs (real schema) ────────────────────────────────
             const { data: logs, error: logsErr } = await supabase
                 .from('activity_logs')
                 .select(`
-          id,
-          created_at,
-          action,
-          notes,
-          new_values,
-          profiles!activity_logs_user_id_fkey (
-            email
-          )
-        `)
+    id,
+    created_at,
+    action,
+    notes,
+    new_values,
+    brand_id,
+    user_id
+  `)
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(20);
 
             if (logsErr) console.error('Activity Logs Fetch Error:', logsErr.message);
 
             const changeLogs: ChangeLogItem[] = (logs || []).map((log: any) => {
-                const rawEmail = log.profiles?.email || 'System';
-                const displayName = rawEmail.includes('@')
-                    ? rawEmail.split('@')[0]
-                    : rawEmail;
-
                 return {
                     id: log.id,
                     time: new Date(log.created_at).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                     }),
-                    user: displayName,
-                    action: log.action.replace('_', ' '),
-                    details: log.notes || (log.new_values ? JSON.stringify(log.new_values) : ''),
+                    user: 'System',                     // temporary – no join
+                    action: (log.action || '').replace(/_/g, ' '),
+                    details:
+                        log.notes ||
+                        (log.new_values ? JSON.stringify(log.new_values) : ''),
+                    brandId: log.brand_id ?? null,
                 };
             });
-
             return {
                 weeklyPerformance,
                 top3FastMoving,

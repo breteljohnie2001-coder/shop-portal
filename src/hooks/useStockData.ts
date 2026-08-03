@@ -130,6 +130,21 @@ export function useStockData() {
             alert('Failed to update stock item');
             return false;
         }
+        const originalItem = inventory.find((i) => i.id === updatedItem.id);
+
+        await supabase.rpc('log_activity', {
+            p_action: 'inventory_updated',
+            p_entity_type: 'inventory',
+            p_entity_id: updatedItem.id,
+            p_brand_id: originalItem?.brandId ?? null,
+            p_old_values: null,
+            p_new_values: {
+                name: updatedItem.name,
+                price: updatedItem.price,
+                quantity: updatedItem.quantity,
+            },
+            p_notes: 'Stock item updated',
+        });
 
         // 2. Synchronize variants if the edit form supplied them
         if (updatedItem.variants) {
@@ -259,10 +274,41 @@ export function useStockData() {
         return true;
     };
 
-    // ─────────────────────────────────────────────────────────────
-    // Void stock item
-    // ─────────────────────────────────────────────────────────────
+
     const handleConfirmVoid = async (itemId: string) => {
+        // 1. Locate the item in state to get its image path/URL
+        const itemToVoid = inventory.find((item) => item.id === itemId);
+
+        if (itemToVoid?.imageUrl) {
+            // Extract the relative path if stored as a full Supabase URL
+            let filePath = itemToVoid.imageUrl;
+
+            if (filePath.includes('/storage/v1/object/public/inventory-images/')) {
+                filePath = filePath.split('/storage/v1/object/public/inventory-images/')[1];
+            } else if (filePath.includes('/storage/v1/object/authenticated/inventory-images/')) {
+                filePath = filePath.split('/storage/v1/object/authenticated/inventory-images/')[1];
+            }
+
+            // Delete the file from the inventory-images bucket
+            const { error: storageError } = await supabase.storage
+                .from('inventory-images')
+                .remove([filePath]);
+
+            if (storageError) {
+                console.error('Storage Delete Error:', storageError.message);
+            }
+        }
+        await supabase.rpc('log_activity', {
+            p_action: 'inventory_voided',
+            p_entity_type: 'inventory',
+            p_entity_id: itemId,
+            p_brand_id: itemToVoid?.brandId ?? null,
+            p_old_values: null,
+            p_new_values: { is_voided: true },
+            p_notes: 'Stock item voided',
+        });
+
+        // 2. Void the stock item in the database
         const { error } = await supabase
             .from('inventory')
             .update({
@@ -276,6 +322,7 @@ export function useStockData() {
             return false;
         }
 
+        // 3. Update local state immediately
         setInventory((prev) =>
             prev.filter((item) => item.id !== itemId)
         );
@@ -299,6 +346,15 @@ export function useStockData() {
             alert('Failed to submit fix request');
             return;
         }
+        await supabase.rpc('log_activity', {
+            p_action: 'fix_requested',
+            p_entity_type: 'inventory',
+            p_entity_id: id,
+            p_brand_id: null,
+            p_old_values: null,
+            p_new_values: { fix_requested: true },
+            p_notes: 'Employee requested fix',
+        });
 
         setInventory((prev) =>
             prev.map((item) =>
@@ -329,6 +385,15 @@ export function useStockData() {
             alert('Failed to approve fix request');
             return;
         }
+        await supabase.rpc('log_activity', {
+            p_action: 'fix_approved',
+            p_entity_type: 'inventory',
+            p_entity_id: id,
+            p_brand_id: null,
+            p_old_values: null,
+            p_new_values: { boss_approved_fix: true },
+            p_notes: 'Boss approved fix request',
+        });
 
         setInventory((prev) =>
             prev.map((item) =>

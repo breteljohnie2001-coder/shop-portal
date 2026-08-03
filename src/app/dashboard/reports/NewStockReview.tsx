@@ -21,7 +21,7 @@ export function NewStockReview({ items }: Props) {
                         </h2>
                     </div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
-            Low / Zero Movement
+            ≤ 2 days · Low / Zero Movement
           </span>
                 </div>
 
@@ -29,18 +29,27 @@ export function NewStockReview({ items }: Props) {
                     {items.length > 0 ? (
                         items.map((item) => {
                             const brand = resolveBrand(item.brandId);
+
                             return (
                                 <div
                                     key={item.id}
                                     className="flex items-center gap-3.5 rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-3 transition-all hover:border-neutral-700"
                                 >
+                                    {/* Image */}
                                     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
                                         {item.imageUrl ? (
+                                            // Using unoptimized + fallback <img> pattern so it works
+                                            // even if the domain is not yet in next.config.js
                                             <Image
                                                 src={item.imageUrl}
                                                 alt={item.name}
                                                 fill
                                                 className="object-cover"
+                                                unoptimized
+                                                onError={(e) => {
+                                                    // hide broken image
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
                                             />
                                         ) : (
                                             <div className="h-full w-full flex items-center justify-center text-[9px] text-neutral-600 font-mono">

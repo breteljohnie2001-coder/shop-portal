@@ -1,4 +1,3 @@
-// lib/brands.ts
 export type BrandKey = 'bee_trendy' | 'baddie';
 
 export function resolveBrand(brandId: string | null | undefined): BrandKey {
