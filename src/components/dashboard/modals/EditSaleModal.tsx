@@ -140,7 +140,7 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                                 </span>
                             </div>
                             <input
-                                type="number"
+                                type="number" enterKeyHint="next"
                                 value={quantity}
                                 readOnly
                                 disabled
@@ -156,7 +156,7 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                                 </span>
                             </div>
                             <input
-                                type="number"
+                                type="number" enterKeyHint="next"
                                 value={unitPrice}
                                 readOnly
                                 disabled
@@ -180,7 +180,7 @@ export default function EditSaleModal({ isOpen, sale, onClose, onSave }: EditSal
                     <div>
                         <label className="text-stone-400 font-medium">Reason for Sale Edit (Audit Log)</label>
                         <input
-                            type="text"
+                            type="text" enterKeyHint="next"
                             required
                             placeholder="e.g. Wrong client name, mode of payment change..."
                             value={reason}

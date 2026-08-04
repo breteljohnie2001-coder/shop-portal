@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import SalesListModal, { SaleItem } from "./modals/SalesListModal";
+import SalesListModal from "./modals/SalesListModal";
+import {SaleItem} from "@/types/types";
 
 interface BrandSalesCardsProps {
     brandASales: number;

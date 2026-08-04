@@ -111,6 +111,9 @@ export function useSalesData(selectedDate: string) {
     // ─── 2. Mutations ────────────────────────────────────────────────────────
     const editMutation = useMutation({
         mutationFn: async (updatedSale: EditableSaleItem) => {
+            // 1. Find the target sale FIRST so it's available throughout the mutation
+            const targetSale = salesList.find((s) => s.id === updatedSale.id);
+
             const newAmount = updatedSale.quantity * updatedSale.unitPrice;
             const paymentConverted = updatedSale.paymentMethod === 'Cash' ? 'Cash' : 'M-Pesa';
 
@@ -127,7 +130,6 @@ export function useSalesData(selectedDate: string) {
 
             if (saleError) throw saleError;
 
-            const targetSale = salesList.find((s) => s.id === updatedSale.id);
             if (targetSale && targetSale.items.length > 0) {
                 const { error: itemError } = await supabase
                     .from('sale_items')
@@ -141,23 +143,55 @@ export function useSalesData(selectedDate: string) {
 
                 if (itemError) console.error('Sale Item Update Error:', itemError.message);
             }
+
+            // 2. Log activity using targetSale
+            await supabase.rpc('log_activity', {
+                p_action: 'EDIT_SALE',
+                p_entity_type: 'sales',
+                p_entity_id: updatedSale.id,
+                p_brand_id: targetSale?.brandId || assignedBrand || null,
+                p_notes: `Updated sale #${targetSale?.receiptNo || updatedSale.id}: ${updatedSale.itemName} (${updatedSale.quantity}x @ KES ${updatedSale.unitPrice})`,
+            });
         },
         onSuccess: invalidateSales,
     });
 
     const voidMutation = useMutation({
         mutationFn: async (saleId: string) => {
+            // Find targetSale at the top of the function scope
+            const targetSale = salesList.find((s) => s.id === saleId);
+
             const { error } = await supabase
                 .from('sales')
                 .update({ is_voided: true, updated_at: new Date().toISOString() })
                 .eq('id', saleId);
+
             if (error) throw error;
+
+            await supabase.rpc('log_activity', {
+                p_action: 'VOID_SALE',
+                p_entity_type: 'sales',
+                p_entity_id: saleId,
+                p_brand_id: targetSale?.brandId || assignedBrand || null,
+                p_notes: `Voided sale #${targetSale?.receiptNo || saleId} (KES ${targetSale?.amount || 0})`,
+            });
         },
         onSuccess: invalidateSales,
     });
 
     const fixMutation = useMutation({
         mutationFn: async ({ saleId, fixRequested, bossApprovedFix }: { saleId: string; fixRequested: boolean; bossApprovedFix: boolean }) => {
+            // 1. Find the target sale
+            const targetSale = salesList.find((s) => s.id === saleId);
+
+            // 2. Compute actionName in the top-level scope of mutationFn
+            const actionName = fixRequested
+                ? 'REQUEST_FIX_SALE'
+                : bossApprovedFix
+                    ? 'APPROVE_FIX_SALE'
+                    : 'UPDATE_SALE_FIX';
+
+            // 3. Update database
             const { error } = await supabase
                 .from('sales')
                 .update({
@@ -166,7 +200,17 @@ export function useSalesData(selectedDate: string) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', saleId);
+
             if (error) throw error;
+
+            // 4. Log activity using actionName
+            await supabase.rpc('log_activity', {
+                p_action: actionName,
+                p_entity_type: 'sales',
+                p_entity_id: saleId,
+                p_brand_id: targetSale?.brandId || assignedBrand || null,
+                p_notes: `${fixRequested ? 'Fix requested' : 'Fix approved'} for sale #${targetSale?.receiptNo || saleId}`,
+            });
         },
         onSuccess: invalidateSales,
     });

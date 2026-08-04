@@ -147,3 +147,48 @@ export interface ChangeLogItem {
     brandId?: string | null;
 }
 
+export interface PurchasedProduct {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+}
+
+export interface SaleItem {
+    id: string;
+    customerName: string;
+    amount: number;
+    date: string;
+    paymentMethod: string;
+    items: PurchasedProduct[];
+}
+
+export interface SalesListModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    brandName: string;
+    logoUrl: string;
+    totalSales: number;
+    sales: SaleItem[];
+}
+
+// components/expenses/types.ts
+export interface Expense {
+    id: string;
+    brand_id: 'brand_a' | 'brand_b' | string;
+    description: string;
+    amount: number;
+    created_at: string;
+    created_by: string;
+    fix_requested?: boolean;
+    boss_approved_fix?: boolean;
+    is_voided?: boolean;
+}
+
+
+export const isWithin15Minutes = (createdAt: string | Date) => {
+    if (!createdAt) return false;
+    const dateObj = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+    const diffInMinutes = (Date.now() - dateObj.getTime()) / (1000 * 60);
+    return diffInMinutes >= 0 && diffInMinutes <= 15;
+};

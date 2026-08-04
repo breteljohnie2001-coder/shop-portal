@@ -396,7 +396,7 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
                         <div>
                             <label className="block text-xs font-medium text-neutral-400 mb-1">Customer Name</label>
                             <input
-                                type="text"
+                                type="text" enterKeyHint="next"
                                 placeholder="e.g. Mumo Kitheka (optional: Default Walk-In)"
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}

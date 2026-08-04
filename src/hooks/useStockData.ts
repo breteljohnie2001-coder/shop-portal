@@ -130,20 +130,15 @@ export function useStockData() {
             alert('Failed to update stock item');
             return false;
         }
+// Example: Fix inside handleSaveEdit
         const originalItem = inventory.find((i) => i.id === updatedItem.id);
 
         await supabase.rpc('log_activity', {
-            p_action: 'inventory_updated',
+            p_action: 'EDIT_INVENTORY', // Match your database UPPERCASE naming convention
             p_entity_type: 'inventory',
             p_entity_id: updatedItem.id,
-            p_brand_id: originalItem?.brandId ?? null,
-            p_old_values: null,
-            p_new_values: {
-                name: updatedItem.name,
-                price: updatedItem.price,
-                quantity: updatedItem.quantity,
-            },
-            p_notes: 'Stock item updated',
+            p_brand_id: originalItem?.brandId || assignedBrand || null,
+            p_notes: `Updated stock item: ${updatedItem.name}`,
         });
 
         // 2. Synchronize variants if the edit form supplied them
@@ -346,14 +341,15 @@ export function useStockData() {
             alert('Failed to submit fix request');
             return;
         }
+// Example: Fix inside handleRequestFix
+        const currentItem = inventory.find((i) => i.id === id);
+
         await supabase.rpc('log_activity', {
-            p_action: 'fix_requested',
+            p_action: 'REQUEST_FIX_INVENTORY',
             p_entity_type: 'inventory',
             p_entity_id: id,
-            p_brand_id: null,
-            p_old_values: null,
-            p_new_values: { fix_requested: true },
-            p_notes: 'Employee requested fix',
+            p_brand_id: currentItem?.brandId || assignedBrand || null,
+            p_notes: 'Employee requested stock fix',
         });
 
         setInventory((prev) =>

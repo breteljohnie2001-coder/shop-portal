@@ -303,7 +303,7 @@ export default function AddStockModal({
                                 Item Name
                             </label>
                             <input
-                                type="text"
+                                type="text" enterKeyHint="next"
                                 required
                                 placeholder="e.g. Floral Maxi Dress"
                                 value={itemName}
@@ -318,7 +318,7 @@ export default function AddStockModal({
                                 Unit Price (KES)
                             </label>
                             <input
-                                type="number"
+                                type="number" enterKeyHint="next"
                                 required
                                 min="0"
                                 placeholder="0"
@@ -337,7 +337,7 @@ export default function AddStockModal({
                                     Quantity
                                 </label>
                                 <input
-                                    type="number"
+                                    type="number" enterKeyHint="next"
                                     min="0"
                                     value={manualQuantity}
                                     onChange={(e) =>

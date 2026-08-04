@@ -3,31 +3,9 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ArrowUpRight, ShoppingBag, Package, Smartphone, Banknote } from 'lucide-react';
+import {PurchasedProduct, SaleItem, SalesListModalProps } from "@/types/types";
 
-export interface PurchasedProduct {
-    id: string;
-    name: string;
-    quantity: number;
-    price: number;
-}
 
-export interface SaleItem {
-    id: string;
-    customerName: string;
-    amount: number;
-    date: string;
-    paymentMethod: string;
-    items: PurchasedProduct[];
-}
-
-interface SalesListModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    brandName: string;
-    logoUrl: string;
-    totalSales: number;
-    sales: SaleItem[];
-}
 
 export default function SalesListModal({
                                            isOpen,
@@ -76,7 +54,7 @@ export default function SalesListModal({
                             className="h-8 w-auto object-contain"
                         />
                         <div>
-                            <h2 className="text-lg font-bold tracking-tight text-white">{brandName} Sales</h2>
+                            <h2 className="text-md font-bold tracking-tight text-white">{brandName} <br/>Today's Sales</h2>
                             <p className="text-xs text-neutral-400">Detailed transaction breakdown</p>
                         </div>
                     </div>
@@ -118,41 +96,49 @@ export default function SalesListModal({
                                 key={sale.id}
                                 className="rounded-xl border border-neutral-800/60 bg-neutral-950/40 p-4 transition-all hover:border-neutral-700 hover:bg-neutral-950"
                             >
-                                {/* Top Row: Customer Info, Date & Payment Badge */}
-                                <div className="flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-300 font-semibold text-xs shrink-0">
-                                            {sale.customerName.charAt(0)}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-neutral-200 truncate">{sale.customerName}</p>
-
-                                            {/* Date + Badge in a non-wrapping flex row */}
-                                            <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
-                                                <p className="text-[11px] text-neutral-500">{sale.date}</p>
-                                                <span className="text-neutral-700 text-[10px]">•</span>
-
-                                                {sale.paymentMethod === "M-Pesa" ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20 shrink-0">
-                                                        <Smartphone className="h-2.5 w-2.5" />
-                                                        {sale.paymentMethod}
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20 shrink-0">
-                                                        <Banknote className="h-2.5 w-2.5" />
-                                                        {sale.paymentMethod}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
+                                {/* Top Section: Avatar + Structured Info */}
+                                <div className="flex items-start gap-3">
+                                    {/* Avatar */}
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-300 font-semibold text-xs shrink-0 mt-0.5">
+                                        {sale.customerName?.charAt(0) || 'C'}
                                     </div>
 
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <p className="text-sm font-bold font-mono text-neutral-100 whitespace-nowrap">
-                                            <span className="text-[10px] font-sans text-neutral-500 mr-1">KES</span>
-                                            {sale.amount.toLocaleString()}
-                                        </p>
-                                        <ArrowUpRight className="h-4 w-4 text-neutral-600" />
+                                    {/* Content Block */}
+                                    <div className="min-w-0 flex-1">
+                                        {/* Row 1: Customer Name & Arrow Icon */}
+                                        <div className="flex items-center justify-between gap-2 min-w-0">
+                                            <p
+                                                className="text-sm font-semibold text-neutral-200 truncate flex-1 min-w-0"
+                                                title={sale.customerName || 'Walk-in Customer'}
+                                            >
+                                                {sale.customerName || 'Walk-in Customer'}
+                                            </p>
+                                            <ArrowUpRight className="h-4 w-4 text-neutral-600 shrink-0" />
+                                        </div>
+
+                                        {/* Row 2: Date, Payment Mode, and Total Amount (All in one line) */}
+                                        <div className="flex items-center gap-2 mt-1 min-w-0">
+                                            <p className="text-[11px] text-neutral-500 shrink-0">{sale.date}</p>
+                                            <span className="text-neutral-700 text-[10px] shrink-0">•</span>
+
+                                            {sale.paymentMethod === "M-Pesa" || (sale.paymentMethod as string) === "MPESA" ? (
+                                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20 shrink-0">
+                                                <Smartphone className="h-2.5 w-2.5" />
+                                                    {sale.paymentMethod}
+                                            </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/20 shrink-0">
+                                                <Banknote className="h-2.5 w-2.5" />
+                                                    {sale.paymentMethod}
+                                            </span>
+                                            )}
+
+                                            {/* Total Amount pushed to the far right on the same line */}
+                                            <p className="text-sm font-bold font-mono text-neutral-100 whitespace-nowrap shrink-0 ml-auto pl-2">
+                                                <span className="text-[10px] font-sans text-neutral-500 mr-1">KES</span>
+                                                {sale.amount.toLocaleString()}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -168,8 +154,8 @@ export default function SalesListModal({
                                             <span className="text-neutral-500 font-mono">x{prod.quantity}</span>
                                             <span className="text-neutral-600">|</span>
                                             <span className="font-mono text-emerald-400/90 text-[11px]">
-                                                KES {prod.price.toLocaleString()}
-                                            </span>
+                                            KES {prod.price.toLocaleString()}
+                                        </span>
                                         </div>
                                     ))}
                                 </div>

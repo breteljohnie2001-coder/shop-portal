@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { SaleItem } from "@/components/dashboard/modals/SalesListModal";
+import { SaleItem } from "@/types/types";
 import TotalSalesCard from '@/components/dashboard/TotalSalesCard';
 import BrandSalesCards from '@/components/dashboard/BrandSalesCards';
 import QuickActions from '@/components/dashboard/QuickActions';
