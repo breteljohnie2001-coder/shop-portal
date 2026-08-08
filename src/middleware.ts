@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-    let response = NextResponse.next({
+    let supabaseResponse = NextResponse.next({
         request: {
             headers: request.headers,
         },
@@ -17,56 +17,48 @@ export async function middleware(request: NextRequest) {
                     return request.cookies.getAll();
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
-                    );
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        request.cookies.set(name, value);
+                        supabaseResponse.cookies.set(name, value, options);
+                    });
                 },
             },
         }
     );
 
+    // Only refresh the session (this is required)
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
-
-    // Your login page is the root "/"
     const isLoginPage = pathname === '/';
 
-    // 1. Not logged in and trying to access anything except the login page
+    // Helper to keep cookies when redirecting
+    const redirectWithCookies = (url: URL) => {
+        const redirectResponse = NextResponse.redirect(url);
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+            redirectResponse.cookies.set(cookie.name, cookie.value);
+        });
+        return redirectResponse;
+    };
+
+    // 1. Not logged in → force to login page
     if (!user && !isLoginPage) {
-        const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = '/';
-        return NextResponse.redirect(redirectUrl);
+        const url = request.nextUrl.clone();
+        url.pathname = '/';
+        return redirectWithCookies(url);
     }
 
-    // 2. User is logged in → check if they exist in profiles
-    if (user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', user.id) // recommended (better than matching by email)
-            .maybeSingle();
-
-        // Not pre-registered → sign out and send back to login
-        if (!profile) {
-            await supabase.auth.signOut();
-            const redirectUrl = request.nextUrl.clone();
-            redirectUrl.pathname = '/';
-            redirectUrl.searchParams.set('error', 'unauthorized');
-            return NextResponse.redirect(redirectUrl);
-        }
-
-        // Logged-in user is on the login page → send them to dashboard
-        if (isLoginPage) {
-            const redirectUrl = request.nextUrl.clone();
-            redirectUrl.pathname = '/dashboard';
-            return NextResponse.redirect(redirectUrl);
-        }
+    // 2. Logged in + on login page → go to dashboard
+    if (user && isLoginPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard';
+        return redirectWithCookies(url);
     }
 
-    return response;
+    // No more profiles query on every navigation
+    return supabaseResponse;
 }
 
 export const config = {

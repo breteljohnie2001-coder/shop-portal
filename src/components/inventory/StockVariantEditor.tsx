@@ -180,7 +180,7 @@ export default function StockVariantEditor({
                                 <div className="flex items-center gap-2 flex-1">
                                     <Tag className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
                                     <input
-                                        type="text"
+                                        type="number" enterKeyHint="next"
                                         value={group.color}
                                         onChange={(e) => updateColorName(groupIdx, e.target.value)}
                                         placeholder="COLOUR (E.G. RED, NAVY BLUE)"
@@ -214,7 +214,7 @@ export default function StockVariantEditor({
                                                 </label>
                                             )}
                                             <input
-                                                type="text"
+                                                type="number" enterKeyHint="next"
                                                 value={sizeRow.size}
                                                 onChange={(e) =>
                                                     updateSizeInGroup(
@@ -237,7 +237,7 @@ export default function StockVariantEditor({
                                                 </label>
                                             )}
                                             <input
-                                                type="number"
+                                                type="number" enterKeyHint="next"
                                                 min="0"
                                                 value={sizeRow.quantity}
                                                 onChange={(e) =>

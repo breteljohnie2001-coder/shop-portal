@@ -68,26 +68,26 @@ export default function SaleItemCard({
                             {sale.customerName || 'Walk-in Customer'}
                         </p>
                         <span className="text-[10px] font-mono text-neutral-500 shrink-0">
-                    #{sale.receiptNo}
-                </span>
+                            #{sale.receiptNo}
+                        </span>
                     </div>
 
-                    {/* Row 2: Time, Payment Mode, and Total Amount (All in one line) */}
+                    {/* Row 2: Time, Payment Mode, and Total Amount */}
                     <div className="flex items-center gap-2 mt-1 min-w-0">
                         <span className="text-[11px] text-neutral-400 shrink-0">{formattedTime}</span>
                         <span className="text-neutral-700 text-[10px] shrink-0">•</span>
 
                         {sale.paymentMethod === 'M-Pesa' || (sale.paymentMethod as string) === 'MPESA' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 shrink-0">
-                        <Smartphone className="h-2.5 w-2.5" /> M-Pesa
-                    </span>
+                                <Smartphone className="h-2.5 w-2.5" /> M-Pesa
+                            </span>
                         ) : (
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 shrink-0">
-                        <Banknote className="h-2.5 w-2.5" /> Cash
-                    </span>
+                                <Banknote className="h-2.5 w-2.5" /> Cash
+                            </span>
                         )}
 
-                        {/* Total KES Amount pushed to the far right */}
+                        {/* Total KES Amount */}
                         <p className="font-mono text-sm font-bold text-white shrink-0 ml-auto pl-2">
                             <span className="text-[10px] font-sans text-neutral-400 mr-1">KES</span>
                             {Number(sale.amount || 0).toLocaleString()}
@@ -102,31 +102,38 @@ export default function SaleItemCard({
                     sale.items.map((item, idx) => (
                         <div
                             key={item.id || idx}
-                            className="flex items-center justify-between rounded-lg bg-neutral-950 px-3 py-1.5 border border-neutral-800/80 text-xs text-neutral-300"
+                            className="flex items-start justify-between gap-3 rounded-lg bg-neutral-950 px-3 py-1.5 border border-neutral-800/80 text-xs text-neutral-300"
                         >
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Package className="h-3.5 w-3.5 text-neutral-500 shrink-0" />
-                                <span className="font-medium text-neutral-200 truncate">{item.name}</span>
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                                <Package className="h-3.5 w-3.5 text-neutral-500 shrink-0 mt-0.5" />
 
-                                {/* 🏷️ Render Size Badge */}
-                                {item.size && (
-                                    <span className="px-1.5 py-0.2 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300 font-mono shrink-0">
-                                {item.size}
-                            </span>
-                                )}
+                                <div className="min-w-0">
+                                    {/* Full item name - wraps instead of truncating */}
+                                    <span className="font-medium text-neutral-200 break-words">
+                                        {item.name}
+                                    </span>
 
-                                {/* 🏷️ Render Color Badge */}
-                                {item.color && (
-                                    <span className="px-1.5 py-0.2 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300 shrink-0">
-                                {item.color}
-                            </span>
-                                )}
+                                    {/* Size & Color badges */}
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        {item.size && (
+                                            <span className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300 font-mono">
+                                                {item.size}
+                                            </span>
+                                        )}
+                                        {item.color && (
+                                            <span className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700/60 text-[10px] text-neutral-300">
+                                                {item.color}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0 font-mono text-[11px]">
+
+                            <div className="flex items-center gap-3 shrink-0 font-mono text-[11px] pt-0.5">
                                 <span className="text-neutral-500">x{item.quantity}</span>
                                 <span className="text-neutral-400">
-                            KES {item.price}
-                        </span>
+                                    KES {item.price}
+                                </span>
                             </div>
                         </div>
                     ))
@@ -134,8 +141,8 @@ export default function SaleItemCard({
                     <div className="flex items-center justify-between rounded-lg bg-neutral-950 px-3 py-1.5 border border-neutral-800/80 text-xs text-neutral-300">
                         <span className="font-medium text-neutral-200">Item Record</span>
                         <span className="font-mono text-[11px] text-neutral-400">
-                    KES {Number(sale.amount || 0).toLocaleString()}
-                </span>
+                            KES {Number(sale.amount || 0).toLocaleString()}
+                        </span>
                     </div>
                 )}
             </div>
@@ -145,16 +152,16 @@ export default function SaleItemCard({
                 <div className="flex items-center gap-1.5">
                     {isUnlocked ? (
                         <span className="text-emerald-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Editable (15m window)
-                </span>
+                            <Clock className="h-3 w-3" /> Editable (15m window)
+                        </span>
                     ) : isApprovedVisible ? (
                         <span className="text-emerald-400 flex items-center gap-1 font-medium">
-                    <Check className="h-3 w-3" /> Approved by Boss
-                </span>
+                            <Check className="h-3 w-3" /> Approved by Boss
+                        </span>
                     ) : (
                         <span className="text-neutral-500 flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Locked
-                </span>
+                            <Clock className="h-3 w-3" /> Locked
+                        </span>
                     )}
                 </div>
 
@@ -180,8 +187,8 @@ export default function SaleItemCard({
                     {!canEdit && userRole === 'employee' && isBrandAssociated && (
                         sale.fixRequested ? (
                             <span className="text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                        Approval Requested
-                    </span>
+                                Approval Requested
+                            </span>
                         ) : (
                             <button
                                 onClick={onRequestFix}
@@ -194,8 +201,8 @@ export default function SaleItemCard({
 
                     {!canEdit && userRole === 'employee' && !isBrandAssociated && (
                         <span className="text-stone-500 flex items-center gap-1 text-[10px]">
-                    <ShieldX className="h-3 w-3" /> Unassigned Brand
-                </span>
+                            <ShieldX className="h-3 w-3" /> Unassigned Brand
+                        </span>
                     )}
 
                     {userRole === 'boss' && sale.fixRequested && (
