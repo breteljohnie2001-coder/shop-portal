@@ -1,13 +1,15 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, AlertCircle } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get('error');
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null);
 
   const signInWithGoogle = async () => {
@@ -42,13 +44,10 @@ export default function LoginPage() {
 
   return (
       <main className="flex min-h-screen items-center justify-center bg-[#0F0F10] px-4 text-white">
-        {/* Ambient Background Gradient Glows */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[250px] w-[250px] rounded-full bg-amber-500/5 blur-[100px] pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-md rounded-3xl border border-neutral-800/80 bg-neutral-900/90 p-8 sm:p-10 shadow-2xl backdrop-blur-xl">
-
-          {/* Dual-Brand Header Logos */}
           <div className="mb-10 flex items-center justify-center gap-5 border-b border-neutral-800/80 pb-8">
             <div className="flex items-center justify-center h-12 w-28 rounded-xl bg-neutral-950/60 p-2 border border-neutral-800/50">
               <Image
@@ -75,7 +74,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Title & Description */}
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 mb-1">
               <Lock className="h-3 w-3" /> Secure Portal
@@ -88,7 +86,14 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* OAuth Login Action Buttons */}
+          {/* Display Error Message for Unauthorized Users */}
+          {errorParam === 'unauthorized' && (
+              <div className="mt-6 flex items-center gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Your email is not authorized. Please contact an admin.</span>
+              </div>
+          )}
+
           <div className="mt-8 space-y-3.5">
             <button
                 type="button"
@@ -138,12 +143,24 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Footer Disclaimer */}
           <div className="mt-8 text-center text-[11px] text-neutral-500">
             Protected by Supabase Auth RLS & Team Access Controls.
           </div>
-
         </div>
       </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+      <Suspense
+          fallback={
+            <main className="flex min-h-screen items-center justify-center bg-[#0F0F10] text-white">
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+            </main>
+          }
+      >
+        <LoginContent />
+      </Suspense>
   );
 }

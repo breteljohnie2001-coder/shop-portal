@@ -33,7 +33,7 @@ export default function ProfileDrawer({
 
         await supabase.auth.signOut();
 
-        router.push('/login');
+        router.push('/');
     };
 
     return (
