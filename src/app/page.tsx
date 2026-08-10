@@ -125,22 +125,6 @@ function LoginContent() {
               )}
               <span>Continue with Google</span>
             </button>
-
-            <button
-                type="button"
-                onClick={signInWithApple}
-                disabled={loadingProvider !== null}
-                className="group flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-neutral-700/80 bg-white px-4 text-xs font-semibold text-black transition-all duration-200 hover:bg-neutral-200 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-            >
-              {loadingProvider === 'apple' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-neutral-800" />
-              ) : (
-                  <svg className="h-4 w-4 fill-current text-black" viewBox="0 0 170 170">
-                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.82.13-9.73-1.95-14.73-6.23-3.26-2.72-7.14-7.39-11.64-14.02-6.3-9.28-11.28-20.02-14.93-32.22-3.65-12.2-5.48-23.82-5.48-34.86 0-14.46 3.65-26.33 10.96-35.6 7.31-9.28 16.58-13.97 27.81-14.08 4.7 0 9.87 1.15 15.52 3.45 5.65 2.3 9.47 3.45 11.45 3.45 1.52 0 5.48-1.22 11.87-3.66 6.39-2.44 11.83-3.56 16.33-3.35 12.18.98 21.82 5.54 28.92 13.68-10.87 6.63-16.19 15.87-15.97 27.72.22 9.35 3.8 17.18 10.75 23.49 6.96 6.31 15.22 10.01 24.79 11.1-2.5 7.5-5.98 15.22-10.44 23.16zM119.22 31.84c0-7.07 2.58-13.92 7.74-20.55 5.16-6.63 11.63-10.65 19.41-12.06.22 1.09.33 2.07.33 2.94 0 6.96-2.61 13.81-7.83 20.55-5.22 6.74-11.85 10.76-19.89 12.06-.11-.98-.17-1.95-.17-2.94z" />
-                  </svg>
-              )}
-              <span>Continue with Apple</span>
-            </button>
           </div>
 
           <div className="mt-8 text-center text-[11px] text-neutral-500">
