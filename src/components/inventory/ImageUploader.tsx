@@ -1,8 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
-import Image from 'next/image';
+import { Upload, X, Camera } from 'lucide-react';
 
 interface ImageUploaderProps {
     previewUrl: string | null;
@@ -12,6 +11,7 @@ interface ImageUploaderProps {
 
 export default function ImageUploader({ previewUrl, onImageSelect, disabled }: ImageUploaderProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
@@ -21,6 +21,7 @@ export default function ImageUploader({ previewUrl, onImageSelect, disabled }: I
     const handleRemove = () => {
         onImageSelect(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
+        if (cameraInputRef.current) cameraInputRef.current.value = '';
     };
 
     return (
@@ -29,10 +30,22 @@ export default function ImageUploader({ previewUrl, onImageSelect, disabled }: I
                 Product Image <span className="text-neutral-600">(Auto-compressed to WebP)</span>
             </label>
 
+            {/* Hidden file input (gallery / files) */}
             <input
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={disabled}
+            />
+
+            {/* Hidden camera input */}
+            <input
+                type="file"
+                ref={cameraInputRef}
+                accept="image/*"
+                capture="environment"   // prefers rear camera on mobile
                 onChange={handleFileChange}
                 className="hidden"
                 disabled={disabled}
@@ -51,15 +64,29 @@ export default function ImageUploader({ previewUrl, onImageSelect, disabled }: I
                     </button>
                 </div>
             ) : (
-                <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={disabled}
-                    className="w-full h-24 rounded-xl border border-dashed border-neutral-800 bg-neutral-900/50 hover:bg-neutral-900 flex flex-col items-center justify-center gap-1.5 transition text-neutral-400 hover:text-neutral-200"
-                >
-                    <Upload className="h-5 w-5 text-emerald-400" />
-                    <span className="text-xs">Click to upload product image</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                    {/* Upload from gallery / files */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={disabled}
+                        className="h-24 rounded-xl border border-dashed border-neutral-800 bg-neutral-900/50 hover:bg-neutral-900 flex flex-col items-center justify-center gap-1.5 transition text-neutral-400 hover:text-neutral-200"
+                    >
+                        <Upload className="h-5 w-5 text-emerald-400" />
+                        <span className="text-xs">Upload image</span>
+                    </button>
+
+                    {/* Take a photo */}
+                    <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        disabled={disabled}
+                        className="h-24 rounded-xl border border-dashed border-neutral-800 bg-neutral-900/50 hover:bg-neutral-900 flex flex-col items-center justify-center gap-1.5 transition text-neutral-400 hover:text-neutral-200"
+                    >
+                        <Camera className="h-5 w-5 text-sky-400" />
+                        <span className="text-xs">Take photo</span>
+                    </button>
+                </div>
             )}
         </div>
     );
