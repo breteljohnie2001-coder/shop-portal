@@ -307,13 +307,18 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!clientName.trim()) {
+            alert('Please enter a customer name or select Walk-In-Customer / Online-Customer.');
+            return;
+        }
+
         if (!brandId || lines.length === 0) return;
 
         setIsSubmitting(true);
 
         try {
             const { error } = await supabase.rpc('create_sale_with_items', {
-                p_customer_name: clientName.trim() || 'Walk-in Customer',
+                p_customer_name: clientName.trim(),
                 p_payment_method: paymentMethod,
                 p_brand_id: brandId,
                 p_items: lines.map((line) => ({
@@ -335,7 +340,6 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
             setIsSubmitting(false);
         }
     };
-
     if (!isOpen) return null;
 
     return (
@@ -394,14 +398,45 @@ export default function AddSaleModal({ isOpen, onClose, onSaveSuccess }: AddSale
 
                         {/* Customer Field */}
                         <div>
-                            <label className="block text-xs font-medium text-neutral-400 mb-1">Customer Name</label>
+                            <label className="block text-xs font-medium text-neutral-400 mb-1">
+                                Customer Name
+                            </label>
+
                             <input
-                                type="text" enterKeyHint="next"
-                                placeholder="e.g. Mumo Kitheka (optional: Default Walk-In)"
+                                type="text"
+                                enterKeyHint="next"
+                                placeholder="e.g. Mumo Kitheka"
                                 value={clientName}
                                 onChange={(e) => setClientName(e.target.value)}
                                 className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
                             />
+
+                            {/* Show customer type options only when no name has been entered */}
+                            {!clientName.trim() && (
+                                <div className="mt-2">
+                                    <p className="text-[11px] text-neutral-500 mb-2">
+                                        Or select customer type:
+                                    </p>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setClientName("Walk-In-Customer")}
+                                            className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2.5 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors"
+                                        >
+                                            Walk-In-Customer
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setClientName("Online-Customer")}
+                                            className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2.5 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors"
+                                        >
+                                            Online-Customer
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Line Items */}
