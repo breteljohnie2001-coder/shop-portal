@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PastSale } from '@/types/types';
 import { useUser } from '@/context/UserContext';
 import { EditableSaleItem } from '@/components/dashboard/modals/EditSaleModal';
+import { requestSaleFix, approveSaleFix,} from '@/lib/salesApproval';
 
 export function useSalesData(selectedDate: string) {
     const supabase = createClient();
@@ -93,11 +94,18 @@ export function useSalesData(selectedDate: string) {
                     brandId: String(s.brand_id || '').toLowerCase().trim(),
                     amount: totalAmount,
                     date: createdDate.toISOString().split('T')[0],
-                    time: createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    time: createdDate.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
                     createdAt: createdDate,
                     paymentMethod: s.payment_method === 'Cash' ? 'Cash' : 'M-Pesa',
                     fixRequested: s.fix_requested || false,
                     bossApprovedFix: s.boss_approved_fix || false,
+
+                    // ADD THIS
+                    createdBy: s.created_by,
+
                     items: lineItems,
                 };
             });
@@ -179,19 +187,59 @@ export function useSalesData(selectedDate: string) {
         onSuccess: invalidateSales,
     });
 
+    const sendNotification = async ({
+                                        recipientId,
+                                        type,
+                                        title,
+                                        message,
+                                        saleId,
+                                    }: {
+        recipientId: string;
+        type: string;
+        title: string;
+        message: string;
+        saleId?: string;
+    }) => {
+        const { error } = await supabase
+            .from('notifications')
+            .insert({
+                recipient_id: recipientId,
+                sender_id: user?.id,
+                type,
+                title,
+                message,
+                sale_id: saleId || null,
+            });
+
+        if (error) {
+            console.error('Notification Error:', error);
+        }
+    };
+
     const fixMutation = useMutation({
-        mutationFn: async ({ saleId, fixRequested, bossApprovedFix }: { saleId: string; fixRequested: boolean; bossApprovedFix: boolean }) => {
-            // 1. Find the target sale
+        mutationFn: async ({
+                               saleId,
+                               fixRequested,
+                               bossApprovedFix,
+                           }: {
+            saleId: string;
+            fixRequested: boolean;
+            bossApprovedFix: boolean;
+        }) => {
+
             const targetSale = salesList.find((s) => s.id === saleId);
 
-            // 2. Compute actionName in the top-level scope of mutationFn
+            if (!targetSale || !user) {
+                throw new Error('Sale or user not found');
+            }
+
             const actionName = fixRequested
                 ? 'REQUEST_FIX_SALE'
                 : bossApprovedFix
                     ? 'APPROVE_FIX_SALE'
                     : 'UPDATE_SALE_FIX';
 
-            // 3. Update database
+            // 1. Update sale
             const { error } = await supabase
                 .from('sales')
                 .update({
@@ -203,18 +251,58 @@ export function useSalesData(selectedDate: string) {
 
             if (error) throw error;
 
-            // 4. Log activity using actionName
+            // 2. Log activity
             await supabase.rpc('log_activity', {
                 p_action: actionName,
                 p_entity_type: 'sales',
                 p_entity_id: saleId,
-                p_brand_id: targetSale?.brandId || assignedBrand || null,
-                p_notes: `${fixRequested ? 'Fix requested' : 'Fix approved'} for sale #${targetSale?.receiptNo || saleId}`,
+                p_brand_id: targetSale.brandId || assignedBrand || null,
+                p_notes: `${
+                    fixRequested ? 'Fix requested' : 'Fix approved'
+                } for sale #${targetSale.receiptNo || saleId}`,
             });
+
+            // 3. REQUEST → notify boss
+            if (fixRequested) {
+
+                const { data: bosses, error: bossError } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('role', 'boss');
+
+                if (bossError) {
+                    console.error('Boss lookup error:', bossError);
+                    return;
+                }
+
+                for (const boss of bosses || []) {
+                    await sendNotification({
+                        recipientId: boss.id,
+                        type: 'FIX_REQUEST',
+                        title: 'Approval Required',
+                        message: `${user.name || 'An employee'} requested approval to fix Sale #${targetSale.receiptNo}`,
+                        saleId,
+                    });
+                }
+            }
+
+            // 4. APPROVAL → notify employee
+            if (bossApprovedFix) {
+
+                if (targetSale.createdBy) {
+                    await sendNotification({
+                        recipientId: targetSale.createdBy,
+                        type: 'FIX_APPROVED',
+                        title: 'Fix Approved',
+                        message: `Your request to fix Sale #${targetSale.receiptNo} has been approved.`,
+                        saleId,
+                    });
+                }
+            }
         },
+
         onSuccess: invalidateSales,
     });
-
     return {
         userRole,
         assignedBrand,
@@ -236,7 +324,16 @@ export function useSalesData(selectedDate: string) {
                 return false;
             }
         },
-        handleRequestFix: (saleId: string) => fixMutation.mutate({ saleId, fixRequested: true, bossApprovedFix: false }),
-        handleApproveFix: (saleId: string) => fixMutation.mutate({ saleId, fixRequested: false, bossApprovedFix: true }),
-    };
+        handleRequestFix: (saleId: string) =>
+            fixMutation.mutateAsync({
+                saleId,
+                fixRequested: true,
+                bossApprovedFix: false
+            }),
+        handleApproveFix: (saleId: string) =>
+            fixMutation.mutateAsync({
+                saleId,
+                fixRequested: false,
+                bossApprovedFix: true
+            }),    };
 }

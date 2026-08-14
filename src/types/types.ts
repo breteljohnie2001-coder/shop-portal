@@ -38,6 +38,7 @@ export interface PastSale {
     status?: 'completed' | 'voided' | 'approved' | string;
     fixRequested?: boolean;
     bossApprovedFix?: boolean;
+    createdBy?: string;
 }
 
 // ─── Stock & Inventory Types ──────────────────────────────────────────────────

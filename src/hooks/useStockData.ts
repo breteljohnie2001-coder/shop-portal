@@ -5,13 +5,14 @@ import { EditableItem } from '@/components/dashboard/modals/EditStockModal';
 import { createClient } from '@/lib/supabase/client';
 import { StockItem, StockVariant, InventoryRow } from '@/types/types';
 import { useUser } from '@/context/UserContext';
+import {
+    requestStockFix,
+    approveStockFix,
+} from '@/lib/stockApproval';
 
 const supabase = createClient();
 
-/**
- * A variant being edited may not have an ID yet
- * because it could be a newly-added color/size combination.
- */
+
 type EditableStockVariant = Omit<StockVariant, 'id'> & {
     id?: string;
 };
@@ -329,81 +330,52 @@ export function useStockData() {
     // Employee requests a fix
     // ─────────────────────────────────────────────────────────────
     const handleRequestFix = async (id: string) => {
-        const { error } = await supabase
-            .from('inventory')
-            .update({
-                fix_requested: true,
-            })
-            .eq('id', id);
+        try {
+            await requestStockFix(id, user?.name || 'Employee');
+            setInventory((prev) =>
+                prev.map((item) =>
+                    item.id === id
+                        ? {
+                            ...item,
+                            fixRequested: true,
+                        }
+                        : item
+                )
+            );
 
-        if (error) {
-            console.error('Fix Request Error:', error.message);
+            return true;
+        } catch (error) {
+            console.error('Fix Request Error:', error);
             alert('Failed to submit fix request');
-            return;
+            return false;
         }
-// Example: Fix inside handleRequestFix
-        const currentItem = inventory.find((i) => i.id === id);
-
-        await supabase.rpc('log_activity', {
-            p_action: 'REQUEST_FIX_INVENTORY',
-            p_entity_type: 'inventory',
-            p_entity_id: id,
-            p_brand_id: currentItem?.brandId || assignedBrand || null,
-            p_notes: 'Employee requested stock fix',
-        });
-
-        setInventory((prev) =>
-            prev.map((item) =>
-                item.id === id
-                    ? {
-                        ...item,
-                        fixRequested: true,
-                    }
-                    : item
-            )
-        );
     };
-
     // ─────────────────────────────────────────────────────────────
     // Boss approves the requested fix
     // ─────────────────────────────────────────────────────────────
     const handleApproveFix = async (id: string) => {
-        const { error } = await supabase
-            .from('inventory')
-            .update({
-                fix_requested: false,
-                boss_approved_fix: true,
-            })
-            .eq('id', id);
+        try {
+            await approveStockFix(id);
 
-        if (error) {
-            console.error('Approve Fix Error:', error.message);
+            setInventory((prev) =>
+                prev.map((item) =>
+                    item.id === id
+                        ? {
+                            ...item,
+                            fixRequested: false,
+                            bossApprovedFix: true,
+                        }
+                        : item
+                )
+            );
+
+            return true;
+        } catch (error) {
+            console.error('Approve Fix Error:', error);
             alert('Failed to approve fix request');
-            return;
+            return false;
         }
-        await supabase.rpc('log_activity', {
-            p_action: 'fix_approved',
-            p_entity_type: 'inventory',
-            p_entity_id: id,
-            p_brand_id: null,
-            p_old_values: null,
-            p_new_values: { boss_approved_fix: true },
-            p_notes: 'Boss approved fix request',
-        });
-
-        setInventory((prev) =>
-            prev.map((item) =>
-                item.id === id
-                    ? {
-                        ...item,
-                        fixRequested: false,
-                        bossApprovedFix: true,
-                    }
-                    : item
-            )
-        );
     };
-
     return {
         userRole,
         assignedBrand,

@@ -8,6 +8,10 @@ import { useUser } from '@/context/UserContext';
 import ConfirmFixModal from '@/components/dashboard/modals/ConfirmFixModal';
 import VoidModal from '@/components/dashboard/modals/VoidModal';
 import { useRef } from 'react';
+import {
+    requestExpenseFix,
+    approveExpenseFix,
+} from '@/lib/expenseApproval';
 
 
 import ExpenseForm from './ExpenseForm';
@@ -189,69 +193,30 @@ export default function ExpensesPage() {
 
     // ─── Request Fix ─────────────────────────────────────────────────────────
     const handleConfirmExpenseFix = async (reason?: string) => {
-        if (!expenseToFix) return;
+        if (!expenseToFix || !user) return;
 
         try {
-            const { error } = await supabase
-                .from('expenses')
-                .update({
-                    fix_requested: true,
-                    boss_approved_fix: false,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', expenseToFix.id);
-
-            if (error) throw error;
-
-            try {
-                await supabase.rpc('log_activity', {
-                    p_action: 'REQUEST_FIX_EXPENSE',
-                    p_entity_type: 'expenses',
-                    p_entity_id: expenseToFix.id,
-                    p_brand_id: expenseToFix.brand_id,
-                    p_notes: `Fix requested: ${reason || 'No reason provided'}`,
-                });
-            } catch (rpcErr) {
-                console.warn('Activity log failed non-critically:', rpcErr);
-            }
+            await requestExpenseFix(
+                expenseToFix.id,
+                user.name,
+                reason
+            );
 
             setExpenseToFix(null);
             await loadExpenses();
         } catch (err: any) {
             alert(err.message || 'Failed to request fix');
-            console.error('Request fix error:', err);
+            console.error('Request expense fix error:', err);
         }
     };
-
     // ─── Boss Approval ───────────────────────────────────────────────────────
     const handleApproveFix = async (id: string) => {
         try {
-            // Find the expense so we can log the brand + description
-            const expense = expenses.find((e) => e.id === id);
-
-            const { error } = await supabase
-                .from('expenses')
-                .update({
-                    fix_requested: false,
-                    boss_approved_fix: true,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            // Log the approval
-            await supabase.rpc('log_activity', {
-                p_action: 'APPROVE_FIX_EXPENSE',
-                p_entity_type: 'expenses',
-                p_entity_id: id,
-                p_brand_id: expense?.brand_id || null,
-                p_notes: `Boss approved fix for: ${expense?.description || 'expense'}`,
-            });
-
+            await approveExpenseFix(id);
             await loadExpenses();
         } catch (err: any) {
             alert(err.message || 'Failed to approve fix');
+            console.error('Approve expense fix error:', err);
         }
     };
     return (
