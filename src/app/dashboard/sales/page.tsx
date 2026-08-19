@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, Calendar as CalendarIcon, Filter, Smartphone, Banknote, X, Check, Loader2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, Calendar as CalendarIcon, Filter, Smartphone, Banknote, X, Check, Loader2, BookOpen, Clock } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 import VoidModal from "@/components/dashboard/modals/VoidModal";
 import EditSaleModal, { EditableSaleItem } from "@/components/dashboard/modals/EditSaleModal";
@@ -10,14 +11,17 @@ import { PastSale } from "@/types/types";
 import SaleItemCard from "@/components/Sale/SaleItemCard";
 import ConfirmFixModal from "@/components/dashboard/modals/ConfirmFixModal";
 
+const supabase = createClient();
+
 export default function SalesRecordsPage() {
     const [selectedDate, setSelectedDate] = useState<string>(
         new Date().toISOString().split('T')[0]
     );
 
+    const [expensesList, setExpensesList] = useState<any[]>([]);
     const [saleToFix, setSaleToFix] = useState<PastSale | null>(null);
 
-    // Context-powered hook (No auth waterfalls, instant query cache)
+    const salesData = useSalesData(selectedDate);
     const {
         userRole,
         assignedBrand,
@@ -27,7 +31,7 @@ export default function SalesRecordsPage() {
         handleConfirmVoid,
         handleRequestFix,
         handleApproveFix,
-    } = useSalesData(selectedDate);
+    } = salesData;
 
     const [selectedBrand, setSelectedBrand] = useState<'brand_a' | 'brand_b' | 'ALL'>('brand_a');
     const [selectedPayment, setSelectedPayment] = useState<'ALL' | 'M-Pesa' | 'Cash'>('ALL');
@@ -36,6 +40,41 @@ export default function SalesRecordsPage() {
 
     const [saleToEdit, setSaleToEdit] = useState<PastSale | null>(null);
     const [saleToVoid, setSaleToVoid] = useState<PastSale | null>(null);
+
+    // ─── Fetch Expenses via Supabase ──────────────────────────────────────────
+    useEffect(() => {
+        async function fetchExpenses() {
+            if (!selectedDate) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('expenses')
+                    .select('*')
+                    .eq('is_voided', false)
+                    .gte('created_at', `${selectedDate}T00:00:00`)
+                    .lte('created_at', `${selectedDate}T23:59:59`);
+
+                if (error) throw error;
+                setExpensesList(data || []);
+            } catch (error) {
+                console.error("Error fetching expenses for sales closure:", error);
+                setExpensesList([]);
+            }
+        }
+
+        fetchExpenses();
+    }, [selectedDate]);
+
+    // Check if viewing past date OR current time is 8:00 PM (20:00) or later today
+    const isAfter8PM = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (selectedDate < todayStr) return true;
+        if (selectedDate === todayStr) {
+            const currentHour = new Date().getHours();
+            return currentHour >= 20;
+        }
+        return false;
+    }, [selectedDate]);
 
     const handleConfirmRequestFix = async () => {
         if (!saleToFix) return;
@@ -82,6 +121,38 @@ export default function SalesRecordsPage() {
     }, [salesList, selectedBrand, selectedPayment, searchQuery]);
 
     const totalRevenue = filteredSales.reduce((acc, item) => acc + item.amount, 0);
+
+    // ─── Calculate Closing Metrics ───────────────────────────────────────────
+    const closingMetrics = useMemo(() => {
+        const cashSales = filteredSales
+            .filter((sale: any) => sale.paymentMethod === 'Cash')
+            .reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+
+        const mpesaSales = filteredSales
+            .filter((sale: any) => sale.paymentMethod === 'M-Pesa' || sale.paymentMethod === 'MPESA')
+            .reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+
+        // Filter expenses by active brand (brand_a or brand_b)
+        const totalExpenses = expensesList
+            .filter((exp: any) => {
+                const expBrand = String(exp.brand_id || exp.brandId || '').toLowerCase().trim();
+                if (selectedBrand === 'brand_a') {
+                    return expBrand === 'brand_a' || expBrand === 'a' || expBrand === '1' || expBrand.includes('bee');
+                }
+                if (selectedBrand === 'brand_b') {
+                    return expBrand === 'brand_b' || expBrand === 'b' || expBrand === '2' || expBrand.includes('baddie');
+                }
+                return true;
+            })
+            .reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0);
+
+        return {
+            cashSales,
+            totalExpenses,
+            closingSaleBook: cashSales - totalExpenses,
+            closingSaleMpesa: mpesaSales,
+        };
+    }, [filteredSales, expensesList, selectedBrand]);
 
     const onSaveEdit = async (updatedSale: EditableSaleItem) => {
         const success = await handleSaveEdit(updatedSale);
@@ -131,7 +202,7 @@ export default function SalesRecordsPage() {
                 </div>
             </div>
 
-            {/* Brand Switcher (Unlocked for all users) */}
+            {/* Brand Switcher */}
             <div className="grid grid-cols-2 rounded-xl bg-neutral-900 p-1.5 border border-neutral-800/80 shadow-lg">
                 <button
                     onClick={() => setSelectedBrand('brand_a')}
@@ -170,6 +241,64 @@ export default function SalesRecordsPage() {
                     </p>
                 </div>
             </div>
+
+            {/* Closing Sales Summary Section */}
+            {isAfter8PM ? (
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-4 shadow-xl space-y-3">
+                    <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+                        <div className="flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-amber-400" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                                Daily Closing Report (8:00 PM)
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-neutral-500 bg-neutral-800 px-2 py-0.5 rounded-full">
+                            Settled
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        {/* Closing Sale Book Card */}
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-1">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-medium text-amber-300/80 uppercase tracking-wider">
+                                    Closing Sale Book
+                                </span>
+                                <Banknote className="h-4 w-4 text-amber-400" />
+                            </div>
+                            <p className="text-lg font-bold font-mono text-amber-400">
+                                <span className="text-xs font-sans text-neutral-500 mr-1">KES</span>
+                                {closingMetrics.closingSaleBook.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-neutral-500">
+                                Cash (KES {closingMetrics.cashSales.toLocaleString()}) − Expenses (KES {closingMetrics.totalExpenses.toLocaleString()})
+                            </p>
+                        </div>
+
+                        {/* Closing Sale Mpesa Card */}
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-medium text-emerald-300/80 uppercase tracking-wider">
+                                    Closing Sale M-Pesa
+                                </span>
+                                <Smartphone className="h-4 w-4 text-emerald-400" />
+                            </div>
+                            <p className="text-lg font-bold font-mono text-emerald-400">
+                                <span className="text-xs font-sans text-neutral-500 mr-1">KES</span>
+                                {closingMetrics.closingSaleMpesa.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-neutral-500">
+                                Total M-Pesa transactions for today
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-neutral-800/60 bg-neutral-900/40 px-3.5 py-2.5 text-[11px] text-neutral-500">
+                    <Clock className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
+                    <span>Daily Closing Sale Book & M-Pesa metrics will auto-unlock at 8:00 PM.</span>
+                </div>
+            )}
 
             {/* Search + Payment Filter */}
             <div className="flex items-center gap-2">
